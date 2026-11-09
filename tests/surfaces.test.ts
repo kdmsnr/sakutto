@@ -40,10 +40,11 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toMatch(/state === 'loading'[\s\S]{0,400}runtimeLoading/);
   });
 
-  it('gates the popup translate button on the model the same way', () => {
-    expect(popup).toContain('modelStartBlocked');
-    expect(popup).toMatch(/canStart[\s\S]{0,200}isChromeOnlyLanguage\(targetLanguage\)/);
-    expect(popup).toMatch(/disabled=\{[^}]*!canStart[^}]*\}/);
+  it('reports local connection and the selected model in the popup', () => {
+    expect(popup).toContain('requestLMStudioModels');
+    expect(popup).toContain('lmStudioModel');
+    expect(popup).toContain('lmStudioErrorLabel');
+    expect(popup).not.toContain('requestModelDownload');
   });
 });
 
@@ -87,12 +88,11 @@ describe('typed translation layout', () => {
     expect(typed).not.toContain('辞書');
   });
 
-  it('keeps the PLaMo engine, consent gate and ready rule in place', () => {
+  it('uses the translation engine and presents local API errors', () => {
     expect(typed).toContain("from './engine'");
-    expect(typed).toContain('typedReadiness');
-    expect(typed).toContain('hasLicenseConsent');
-    expect(typed).toContain('requestModelDownload');
-    // The result is copied, never written by a second engine.
+    expect(typed).toContain('lmStudioModel');
+    expect(typed).toContain('lmStudioErrorLabel');
+    expect(typed).not.toContain('requestModelDownload');
     expect(typed).toContain('copyTranslation');
   });
 });

@@ -1,4 +1,4 @@
-import App from './App.svelte';
-import { mountPage } from '@/ui/mount';
+import { browser } from 'wxt/browser';
 
-mountPage(App);
+// Keep old onboarding links working after model setup moved to LM Studio settings.
+window.location.replace(browser.runtime.getURL('/options.html'));

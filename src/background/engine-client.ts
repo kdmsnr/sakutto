@@ -22,6 +22,7 @@ import {
 import { ChunkStream } from '@/engine/queue/chunk-stream';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 import { advanceModelStatus } from '@/shared/model-progress';
+import { loadSettings } from '@/shared/storage';
 import {
   isEngineStatus,
   isModelStatus,
@@ -92,7 +93,14 @@ export class EngineClient {
   constructor(private readonly controller: OffscreenController) {}
 
   async status(): Promise<EngineStatus> {
-    const value = await this.request({ type: 'status' }, { timeoutMs: 15_000 });
+    const settings = await loadSettings();
+    const value = await this.request(
+      {
+        type: 'status',
+        connection: { port: settings.lmStudioPort, model: settings.lmStudioModel },
+      },
+      { timeoutMs: 15_000 },
+    );
     if (!isEngineStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
   }
@@ -212,11 +220,14 @@ export class EngineClient {
       const port = await this.connect();
       if (cancelled || options.signal.aborted) return;
 
+      const settings = await loadSettings();
+      if (cancelled || options.signal.aborted) return;
       port.postMessage({
         type: 'translate',
         requestId,
         segments: segments.map((segment) => ({ ...segment })),
         options: serializeTranslateOptions(options),
+        connection: { port: settings.lmStudioPort, model: settings.lmStudioModel },
       } satisfies TranslateRequest);
 
       for await (const chunk of stream) yield chunk;

@@ -1,7 +1,5 @@
 # Contributing
 
-日本語: [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md)
-
 Sakutto is MIT-licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 The usual path is an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull request for that Issue. That sequence is fully welcome. If you can, a PR is very much wanted. An Issue by itself is also totally welcome — you do not have to write code. Small PRs are enough: a typo, one locale, a docs fix, or a narrow bug fix.
@@ -13,7 +11,6 @@ Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38). Do not p
 ## Setup
 
 - Node.js 24 and pnpm 12 (`package.json` has `engines` and `packageManager`).
-- Docker, only when you change or rebuild the pinned wllama runtime. See [docs/BUILDING.md](docs/BUILDING.md).
 
 ```bash
 pnpm install

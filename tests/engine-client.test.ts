@@ -9,6 +9,10 @@ vi.mock('wxt/browser', () => ({
   browser: { runtime: { id: 'test-extension', connect: vi.fn() } },
 }));
 
+vi.mock('@/shared/storage', () => ({
+  loadSettings: vi.fn(async () => ({ lmStudioPort: 1234, lmStudioModel: 'plamo-test' })),
+}));
+
 const connect = vi.mocked(browser.runtime.connect);
 
 function options(signal = new AbortController().signal): TranslateOptions {
@@ -34,6 +38,9 @@ describe('EngineClient', () => {
     const first = iterator.next();
     await flushTasks();
     expect(port.messagesOfType('translate')).toHaveLength(1);
+    expect(port.messagesOfType('translate')[0]).toMatchObject({
+      connection: { port: 1234, model: 'plamo-test' },
+    });
 
     port.disconnect();
 

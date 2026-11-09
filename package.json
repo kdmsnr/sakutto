@@ -1,5 +1,5 @@
 {
-  "name": "sakutto",
+  "name": "lmsakutto",
   "version": "1.1.0",
   "private": true,
   "description": "Local web page translation with PLaMo 3 Translate.",
@@ -20,12 +20,9 @@
   "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "node scripts/sync-licenses.mjs && wxt",
-    "build": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt build",
-    "zip": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt zip && node scripts/verify-package.ts",
+    "build": "node scripts/sync-licenses.mjs && wxt build && node scripts/copy-extension.mjs",
+    "zip": "node scripts/sync-licenses.mjs && wxt zip && node scripts/verify-package.ts",
     "icons": "node scripts/generate-icons.mjs",
-    "build:wllama": "node scripts/wllama/build.ts",
-    "wllama:check": "node scripts/wllama/build.ts --check",
-    "verify:wllama": "node scripts/verify-wllama.mjs",
     "postinstall": "wxt prepare",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -37,12 +34,13 @@
     "bench:mock": "node scripts/bench/pages-run.ts --mode mock",
     "bench:live": "node scripts/bench/pages-run.ts --mode live",
     "bench:build:mock": "node scripts/sync-licenses.mjs && SAKUTTO_FAKE_ENGINE=1 wxt build",
-    "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
+    "bench:build:live": "node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
     "bench:serve": "node scripts/bench/static.ts",
     "bench:history": "node scripts/bench/report.ts",
     "i18n:check": "node scripts/i18n/check-locales.mjs",
     "i18n:draft": "node scripts/i18n/generate-locale.mjs",
-    "release": "node scripts/release/cli.ts"
+    "release": "node scripts/release/cli.ts",
+    "test:e2e:api": "SAKUTTO_E2E_MOCK_API=1 node scripts/run-e2e.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

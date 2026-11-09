@@ -7,10 +7,10 @@ import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { grantOriginsFor } from '@/dom/sites';
+import { LmStudioClient } from '@/engine/lmstudio/client';
+import { toEngineError } from '@/engine/errors';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '@/engine/model/catalog';
 import { hasLicenseConsent } from '@/shared/agreement';
-import type { EngineCapabilities } from '@/shared/capabilities';
-import { isEngineCapabilities } from '@/shared/capabilities';
 import {
   isCacheClearRequest,
   isEngineCapabilitiesRequest,
@@ -26,14 +26,12 @@ import {
   isModelInspectRequest,
   isModelUseRequest,
   isQualitySampleRequest,
-  requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
 import { ensureSettings } from '@/shared/storage';
 import { readShortcutSnapshot } from '@/shared/shortcuts';
 
 const OFFSCREEN_PAGE = 'offscreen.html';
-const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
 function createOffscreenController(): OffscreenController {
   return new OffscreenController({
@@ -49,7 +47,7 @@ function createOffscreenController(): OffscreenController {
         url: OFFSCREEN_PAGE,
         reasons: [browser.offscreen.Reason.WORKERS],
         justification:
-          'Runs the translation runtime in a document whose workers stay alive independently of the toolbar UI.',
+          'Runs a worker for long local translation requests independently of the toolbar UI.',
       });
     },
     closeDocument: async () => {
@@ -62,48 +60,9 @@ export default defineBackground(() => {
   const client = new EngineClient(createOffscreenController());
   const broker = new TranslationBroker(client);
   const downloads = new Map<ModelId, AbortController>();
-  let capabilitiesCache: EngineCapabilities | null = null;
 
   broker.start();
   installPageActions(broker);
-
-  async function readCachedCapabilities(): Promise<EngineCapabilities | null> {
-    if (capabilitiesCache) return capabilitiesCache;
-
-    const stored = await browser.storage.session.get(CAPABILITIES_CACHE_KEY);
-    const value = stored[CAPABILITIES_CACHE_KEY];
-    if (isEngineCapabilities(value)) {
-      capabilitiesCache = value;
-      return value;
-    }
-
-    return null;
-  }
-
-  async function getEngineCapabilities(): Promise<EngineCapabilities | null> {
-    const cached = await readCachedCapabilities();
-    if (cached) return cached;
-
-    await client.ensureHost();
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await client.ping();
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
-        continue;
-      }
-
-      const capabilities = await requestEngineProbe();
-      if (capabilities) {
-        capabilitiesCache = capabilities;
-        await browser.storage.session.set({ [CAPABILITIES_CACHE_KEY]: capabilities });
-        return capabilities;
-      }
-    }
-
-    return null;
-  }
 
   async function broadcast(message: ModelProgressMessage): Promise<void> {
     await broadcastModelProgress(message, {
@@ -181,7 +140,7 @@ export default defineBackground(() => {
     void (async () => {
       await ensureSettings();
       if (reason === 'install') {
-        await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
+        await browser.tabs.create({ url: browser.runtime.getURL('/options.html') });
       }
     })().catch(() => undefined);
   });
@@ -207,9 +166,25 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return false;
 
-    if (isEngineCapabilitiesRequest(message)) {
-      void getEngineCapabilities().then(sendResponse, () => sendResponse(null));
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      message.type === 'lmstudio:models'
+    ) {
+      if (!sender.url?.startsWith(browser.runtime.getURL('/'))) return false;
+      void ensureSettings()
+        .then((settings) => new LmStudioClient(settings.lmStudioPort).models())
+        .then(
+          (models) => sendResponse({ models }),
+          (error: unknown) => sendResponse({ models: [], error: toEngineError(error).code }),
+        );
       return true;
+    }
+
+    if (isEngineCapabilitiesRequest(message)) {
+      sendResponse(null);
+      return false;
     }
 
     if (isEngineStatusRequest(message)) {
@@ -247,7 +222,7 @@ export default defineBackground(() => {
     }
 
     if (isOpenSetupRequest(message)) {
-      void browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') }).then(
+      void browser.tabs.create({ url: browser.runtime.getURL('/options.html') }).then(
         () => sendResponse(true),
         () => sendResponse(false),
       );

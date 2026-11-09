@@ -1,26 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
-  import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
-  import { modelStartBlocked, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
-  import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
   import {
-    isModelProgressMessage,
-    requestEngineStatus,
-    requestEngineWarm,
-    requestModelDownload,
     requestPageCommand,
+    requestPageForm,
     requestPageState,
-    requestQualitySample,
     requestShortcutSnapshot,
     type PageViewState,
   } from '@/shared/messages';
   import { ensureContentScript } from '@/shared/page-bridge';
-  import type { QualitySample } from '@/shared/quality';
+  import { lmStudioErrorLabel, requestLMStudioModels } from '@/shared/lmstudio-status';
   import type { Settings } from '@/shared/settings';
-  import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
+  import { loadSettings, subscribeSettings } from '@/shared/storage';
   import {
     loadSiteRule,
     pageHost,
@@ -29,8 +21,7 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
-  import { isChromeOnlyLanguage, resolvePageTarget, type TargetLanguage } from '@/shared/languages';
-  import { advanceModelStatus } from '@/shared/model-progress';
+  import { resolvePageTarget, type TargetLanguage } from '@/shared/languages';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
     DEFAULT_SHORTCUTS,
@@ -41,9 +32,7 @@
     type ShortcutCommand,
     type ShortcutSnapshot,
   } from '@/shared/shortcuts';
-  import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
-  import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
 
@@ -67,12 +56,12 @@
   let pageMessage = $state<'ready' | 'unsupported' | 'unread'>('unsupported');
   let commandBusy = $state(false);
   let permissionError = $state(false);
-  let engine = $state<EngineStatus | null>(null);
-  let modelMark = $state<ModelStatus | null>(null);
-  let quality = $state<QualitySample | null>(null);
-  let headroom = $state<DeviceHeadroom | null>(null);
+  let connection = $state<'checking' | 'connected' | 'error'>('checking');
+  let connectionError = $state<string | undefined>();
+  let models = $state<string[]>([]);
   let shortcuts = $state<ShortcutSnapshot | null>(null);
   let shortcutError = $state(false);
+  let formError = $state(false);
 
   /**
    * The key each command actually uses on a page. Chrome leaving a command unbound is not
@@ -111,39 +100,13 @@
   let display = $derived(rule?.display ?? settings?.display ?? 'replace');
   let translated = $derived(view?.active === true);
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
-  /**
-   * The toolbar button starts a page translation, so it waits for the model the same way
-   * the onboarding card does. Restoring an already translated page is always allowed, and
-   * a Chrome-only target never needed PLaMo in the first place. An unknown status (the
-   * first moment of the popup, or a host that did not answer) keeps the button as it is
-   * rather than locking it on a guess.
-   */
-  let canStart = $derived(
-    translated ||
-      isChromeOnlyLanguage(targetLanguage) ||
-      !modelStartBlocked(engine?.model ?? modelMark),
-  );
-  let engineText = $derived.by(() => {
-    const label = runtimeLabel({
-      status: engine,
-      pageSimple: view?.active === true && view.engine === 'chrome',
-      targetLanguage,
-    });
-    return t(label.key, label.substitutions);
-  });
-  let offer = $derived(
-    settings !== null &&
-      shouldSuggestHighQuality({
-        tier: engine?.tier ?? null,
-        paragraphMs: quality?.milliseconds ?? null,
-        deviceMemoryGb: headroom?.deviceMemoryGb ?? null,
-        freeStorageBytes: headroom?.freeStorageBytes ?? null,
-        maxBufferSize: headroom?.maxBufferSize ?? null,
-        modelBytes: getModel(HIGH_QUALITY_MODEL_ID).size,
-        dismissed: settings.highQualityDismissed,
-        usingHighQuality: engine?.model.id === HIGH_QUALITY_MODEL_ID && engine.plamoReady,
-      }),
-  );
+  async function refreshEngine() {
+    connection = 'checking';
+    const result = await requestLMStudioModels();
+    models = result.models;
+    connectionError = result.error;
+    connection = result.error ? 'error' : 'connected';
+  }
 
   async function refreshSettings() {
     try {
@@ -152,6 +115,17 @@
     } catch {
       settingsError = 'load';
     }
+  }
+
+  async function changeForm(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    if (tabId === undefined) return;
+    const previous = view?.formOverride ?? '';
+    const form = select.value === 'polite' ? 'polite' : select.value === 'plain' ? 'plain' : null;
+    const next = await requestPageForm(tabId, form);
+    formError = next === null;
+    if (next) view = next;
+    else select.value = previous;
   }
 
   async function refreshPage() {
@@ -178,29 +152,6 @@
       pageReady = false;
       pageMessage = 'unread';
     }
-  }
-
-  function rememberModel(status: ModelStatus | null): ModelStatus | null {
-    if (!status) return modelMark;
-    const next = advanceModelStatus(modelMark, status);
-    modelMark = next;
-    return next;
-  }
-
-  async function refreshEngine() {
-    const next = await requestEngineStatus();
-    if (!next) return;
-    engine = { ...next, model: rememberModel(next.model) ?? next.model };
-  }
-
-  function applyProgress(status: ModelStatus) {
-    const next = rememberModel(status);
-    if (!next) return;
-    if (engine && engine.model.id === next.id) {
-      engine = { ...engine, model: next };
-      return;
-    }
-    void refreshEngine();
   }
 
   async function rememberSite(patch: Partial<SiteRule>) {
@@ -251,41 +202,12 @@
     await rememberSite({ auto: 'ask' });
   }
 
-  async function useHighQuality() {
-    if (!hasLicenseConsent(settings)) {
-      await browser.tabs
-        .create({ url: browser.runtime.getURL('/onboarding.html') })
-        .catch(() => undefined);
-      return;
-    }
-    try {
-      settings = await saveSettings({ highQualityDismissed: true });
-      await requestModelDownload(HIGH_QUALITY_MODEL_ID);
-    } catch {
-      settingsError = 'save';
-    }
-  }
-
-  async function dismissHighQuality() {
-    try {
-      settings = await saveSettings({ highQualityDismissed: true });
-    } catch {
-      settingsError = 'save';
-    }
-  }
-
   function openOptions() {
     void browser.runtime.openOptionsPage().catch(() => undefined);
   }
 
   async function changeShortcuts() {
     shortcutError = !(await openShortcutEditor());
-  }
-
-  function openOnboarding() {
-    void browser.tabs
-      .create({ url: browser.runtime.getURL('/onboarding.html') })
-      .catch(() => undefined);
   }
 
   function openTyped() {
@@ -304,22 +226,9 @@
       if (tabId === undefined || view?.active !== true || view.pending === 0) return;
       void refreshPage();
     }, 400);
-    const onMessage = (message: unknown) => {
-      if (!isModelProgressMessage(message)) return;
-      applyProgress(message.status);
-    };
-    browser.runtime.onMessage.addListener(onMessage);
-
     void refreshSettings();
     void refreshPage();
     void refreshEngine();
-    void requestEngineWarm();
-    void requestQualitySample().then((sample) => {
-      quality = sample;
-    });
-    void readDeviceHeadroom().then((value) => {
-      headroom = value;
-    });
     void requestShortcutSnapshot().then((snapshot) => {
       shortcuts = snapshot;
     });
@@ -328,7 +237,6 @@
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
-      browser.runtime.onMessage.removeListener(onMessage);
     };
   });
 </script>
@@ -347,33 +255,65 @@
     type="button"
     aria-keyshortcuts={toggleKeys}
     aria-busy={view?.pending ? 'true' : 'false'}
-    disabled={!pageReady || commandBusy || !canStart}
+    disabled={!pageReady || commandBusy}
     onclick={translatePage}
   >
     {primaryLabel}
   </button>
 
-  {#if !canStart}
-    <div class="panel gate" role="status">
-      <p class="muted">{t('pageStartBlocked')}</p>
-      <button class="link-button" type="button" onclick={openOnboarding}>
-        {t('openOnboarding')}
-      </button>
+  {#if settings && pageReady}
+    <div>
+      <LanguageField
+        value={targetLanguage}
+        {uiLanguage}
+        onChange={(language: TargetLanguage) => rememberSite({ targetLanguage: language })}
+      />
+      <p class="muted hint">{t('targetSiteHint')}</p>
     </div>
   {/if}
+  <label class="field">
+    <span>{t('formalityPageLabel')}</span>
+    <select
+      value={view?.formOverride ?? ''}
+      disabled={!settings || !pageReady || !view}
+      onchange={changeForm}
+    >
+      <option value=""
+        >{t('formalityUseDefault')} ({settings?.form === 'polite'
+          ? t('formalityPolite')
+          : t('formalityPlain')})</option
+      >
+      <option value="plain">{t('formalityPlain')}</option>
+      <option value="polite">{t('formalityPolite')}</option>
+    </select>
+  </label>
+  {#if formError}<p class="error" role="alert">{t('errorAction')}</p>{/if}
 
-  <p class="engine" aria-live="polite">{engineText}</p>
-  {#if engine}
-    <p class="muted">
-      {(engine.backend === 'webgpu'
-        ? t('diagBackendGpu')
-        : engine.backend === 'cpu-wasm'
-          ? t('diagBackendCpu')
-          : t('diagBackendUnknown')) +
-        (engine.threads !== null ? ` · ${t('diagThreads')} ${String(engine.threads)}` : '') +
-        (engine.parallel !== null ? ` · n_parallel ${String(engine.parallel)}` : '')}
-    </p>
-  {/if}
+  <p class="engine" aria-live="polite">
+    {connection === 'checking'
+      ? t('lmChecking')
+      : connection === 'error'
+        ? t(lmStudioErrorLabel(connectionError))
+        : !settings?.lmStudioModel
+          ? t('lmNoModel')
+          : !models.includes(settings.lmStudioModel)
+            ? t('lmModelMissing')
+            : t('lmConnected')}
+  </p>
+  {#if settings?.lmStudioModel}<p class="model-name" title={settings.lmStudioModel}>
+      {t('lmModelLabel', [settings.lmStudioModel])}
+    </p>{/if}
+  <p class="muted">
+    {view?.pageLanguage ? `${t('lmSource')}: ${view.pageLanguage}` : t('lmSourceAuto')}
+  </p>
+  <button
+    class="button secondary block"
+    type="button"
+    disabled={!pageReady || commandBusy}
+    onclick={() => {
+      if (tabId !== undefined) void requestPageCommand(tabId, 'selection');
+    }}>{t('lmTranslateSelection')}</button
+  >
   {#if view?.active && view.tokensPerSecond !== null && view.segmentsPerSecond !== null}
     <p class="muted" aria-live="polite">
       {t('pageRate', [view.tokensPerSecond.toFixed(1), view.segmentsPerSecond.toFixed(1)])}
@@ -408,11 +348,6 @@
 
   {#if settings && pageReady}
     <section class="panel" aria-label={t('settingsLabel')}>
-      <LanguageField
-        value={targetLanguage}
-        {uiLanguage}
-        onChange={(language: TargetLanguage) => rememberSite({ targetLanguage: language })}
-      />
       <label class="field">
         <span>{t('displayLabel')}</span>
         <span class="hint">{t('displaySiteHint')}</span>
@@ -449,18 +384,6 @@
     </p>
   {/if}
 
-  {#if offer}
-    <section class="panel offer">
-      <p>{t('highQualityOffer')}</p>
-      <div class="offer-actions">
-        <button class="button" type="button" onclick={useHighQuality}>{t('useHighQuality')}</button>
-        <button class="button secondary" type="button" onclick={dismissHighQuality}>
-          {t('dismissHighQuality')}
-        </button>
-      </div>
-    </section>
-  {/if}
-
   <ul class="shortcuts">
     {#each shortcutLines as line (line.label)}
       <li>{line.text}</li>
@@ -484,6 +407,12 @@
 </main>
 
 <style>
+  .model-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .popup {
     display: grid;
     gap: var(--space-3);
@@ -559,25 +488,6 @@
     border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--text);
-  }
-
-  .offer p {
-    margin-bottom: var(--space-2);
-  }
-
-  .gate {
-    display: grid;
-    gap: var(--space-2);
-    justify-items: start;
-  }
-
-  .gate .link-button {
-    font-size: 12px;
-  }
-
-  .offer-actions {
-    display: flex;
-    gap: var(--space-2);
   }
 
   .shortcuts {

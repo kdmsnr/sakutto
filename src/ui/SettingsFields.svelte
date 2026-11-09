@@ -24,7 +24,7 @@
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
-    onChange({ form: select.value === 'plain' ? 'plain' : 'polite' });
+    onChange({ form: select.value === 'polite' ? 'polite' : 'plain' });
   }
 
   function updateDisplay(event: Event) {
@@ -68,15 +68,13 @@
     onChange={(targetLanguage) => onChange({ targetLanguage })}
   />
 
-  {#if settings.targetLanguage === 'ja'}
-    <label class="field">
-      <span>{t('formalityLabel')}</span>
-      <select value={settings.form} onchange={updateForm}>
-        <option value="polite">{t('formalityPolite')}</option>
-        <option value="plain">{t('formalityPlain')}</option>
-      </select>
-    </label>
-  {/if}
+  <label class="field">
+    <span>{t('formalityLabel')}</span>
+    <select value={settings.form} onchange={updateForm}>
+      <option value="plain">{t('formalityPlain')}</option>
+      <option value="polite">{t('formalityPolite')}</option>
+    </select>
+  </label>
 
   <label class="field">
     <span>{t('displayLabel')}</span>

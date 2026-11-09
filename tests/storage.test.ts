@@ -58,12 +58,12 @@ describe('settings storage', () => {
 
     const [first, second] = await Promise.all([
       saveSettings({ targetLanguage: 'ko' }),
-      saveSettings({ form: 'plain' }),
+      saveSettings({ form: 'polite' }),
     ]);
 
-    expect(first).toMatchObject({ targetLanguage: 'ko', form: 'polite' });
-    expect(second).toMatchObject({ targetLanguage: 'ko', form: 'plain' });
-    expect(await loadSettings()).toMatchObject({ targetLanguage: 'ko', form: 'plain' });
+    expect(first).toMatchObject({ targetLanguage: 'ko', form: 'plain' });
+    expect(second).toMatchObject({ targetLanguage: 'ko', form: 'polite' });
+    expect(await loadSettings()).toMatchObject({ targetLanguage: 'ko', form: 'polite' });
   });
 
   it('propagates storage failures to the caller', async () => {

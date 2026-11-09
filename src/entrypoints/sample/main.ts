@@ -15,6 +15,7 @@ function overlayLabels(): OverlayLabels {
     machine: t('machineTranslationTooltip'),
     selectionPending: t('selectionPending'),
     selectionFailed: t('selectionFailed'),
+    connectionFailed: t('lmPageConnectionFailed'),
     selectionTitle: t('selectionTitle'),
     selectionIcon: t('selectionIcon'),
     close: t('close'),

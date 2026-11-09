@@ -10,8 +10,7 @@ body:
       value: |
         拡張機能の画面文言（`public/_locales`）向けです。ウェブページの訳文の品質は「訳文の品質」テンプレートを使ってください。
 
-        先に [docs/TRANSLATING.md](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.md)
-        （[日本語](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.ja.md)）を読んでください。テストが課している規則と、その理由が書いてあります。
+        先に [docs/TRANSLATING.md](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.md) を読んでください。テストが課している規則と、その理由が書いてあります。
 
         画面全体は `public/_locales/<lang>/messages.json` です。翻訳の pull request が触るのはそのファイルと、`src/shared/locales.ts` の 1 行だけです。Issue だけでも歓迎です。できるなら PR も大歓迎です。
 

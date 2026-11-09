@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Sakutto - 本地 AI 翻译",
+    "message": "lmsakutto",
     "description": "Extension name."
   },
   "extensionShortName": {
-    "message": "Sakutto",
+    "message": "lmsakutto",
     "description": "Short extension name."
   },
   "extensionDescription": {
@@ -157,10 +157,10 @@
     "message": "隐私"
   },
   "privacyBody": {
-    "message": "此扩展不会向服务器发送页面文本。不提供遥测数据。"
+    "message": "Translation text is sent to LM Studio on this device, not to an external cloud service."
   },
   "privacyDestinations": {
-    "message": "该扩展本身的请求是模型下载。它从 huggingface.co 开始，随后跟随 Hugging Face 重定向至其 CDN。页面文本不包含在内。Chrome 自行下载其语言包。"
+    "message": "The API connection is restricted to localhost."
   },
   "privacyPolicyLink": {
     "message": "隐私政策"
@@ -187,7 +187,7 @@
     "message": "通知"
   },
   "licenseModelNote": {
-    "message": "模型权重不会被打包。如果这些权重尚未存储在该设备上，则会从 Hugging Face 官方仓库下载。"
+    "message": "Model weights are not bundled. Install them separately in LM Studio."
   },
   "openOnboarding": {
     "message": "开放式入职"
@@ -1001,5 +1001,106 @@
   },
   "composePlacementHandle": {
     "message": "拖动即可把栏放到任意位置"
+  },
+  "lmHeading": {
+    "message": "LM Studio"
+  },
+  "lmPort": {
+    "message": "Local API port"
+  },
+  "lmPortInvalid": {
+    "message": "Enter a port number from 1 to 65535."
+  },
+  "lmModel": {
+    "message": "Model"
+  },
+  "lmChoose": {
+    "message": "Select a model"
+  },
+  "lmRefresh": {
+    "message": "Test connection and refresh models"
+  },
+  "lmChecking": {
+    "message": "Connecting to LM Studio…"
+  },
+  "lmConnected": {
+    "message": "Connected to LM Studio"
+  },
+  "lmUnavailable": {
+    "message": "Cannot connect to LM Studio. Start its local server and check the port."
+  },
+  "lmTimeout": {
+    "message": "LM Studio did not respond in time."
+  },
+  "lmInvalid": {
+    "message": "LM Studio returned an invalid response."
+  },
+  "lmHttp": {
+    "message": "LM Studio returned an API error. Check the server."
+  },
+  "lmNoModel": {
+    "message": "Select a model in settings."
+  },
+  "lmNoModels": {
+    "message": "No models found. Install a model in LM Studio."
+  },
+  "lmModelMissing": {
+    "message": "The selected model is not in the model list."
+  },
+  "lmModelHint": {
+    "message": "Model availability does not indicate whether it is loaded. Load the model in LM Studio."
+  },
+  "lmContext": {
+    "message": "Use surrounding text as context"
+  },
+  "lmModelLabel": {
+    "message": "Model: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "lmSourceAuto": {
+    "message": "Source: automatic"
+  },
+  "lmSource": {
+    "message": "Source language"
+  },
+  "lmAuto": {
+    "message": "Automatic"
+  },
+  "lmError": {
+    "message": "Translation failed. Check that the LM Studio server is running and the selected model is loaded."
+  },
+  "lmPageConnectionFailed": {
+    "message": "Cannot connect to LM Studio. Start the local server and check the port in settings."
+  },
+  "lmTranslateSelection": {
+    "message": "Translate selected text"
+  },
+  "lmEmpty": {
+    "message": "LM Studio returned an empty translation."
+  },
+  "lmTruncated": {
+    "message": "The translation was cut off. Try a shorter text."
+  },
+  "lmModelFailed": {
+    "message": "The selected model was not found or could not be loaded. Check LM Studio and select a model in settings."
+  },
+  "lmCommunication": {
+    "message": "The extension could not communicate with its translation process. Reload the extension and try again."
+  },
+  "lmAutoDirection": {
+    "message": "Automatically switch between Japanese and English"
+  },
+  "formalityPageLabel": {
+    "message": "Japanese tone for this page"
+  },
+  "formalityUseDefault": {
+    "message": "Use default setting"
+  },
+  "targetSiteHint": {
+    "message": "Applies to this site"
   }
 }

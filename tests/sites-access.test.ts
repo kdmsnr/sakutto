@@ -45,3 +45,13 @@ describe('site access origins', () => {
     ).toBeUndefined();
   });
 });
+
+it('drops obsolete Chrome-only site targets', () => {
+  expect(normalizeSiteRule('example.com', { auto: 'ask', targetLanguage: 'pt' })).toEqual({
+    host: 'example.com',
+    auto: 'ask',
+  });
+  expect(
+    normalizeSiteRule('example.com', { auto: 'ask', targetLanguage: 'ja' })?.targetLanguage,
+  ).toBe('ja');
+});

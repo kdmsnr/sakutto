@@ -323,7 +323,7 @@ test.describe('compose translation', () => {
       await box.focus();
       await applyCompose(page);
       await expect(box).toHaveValue(`${MARKER}明日会いましょう。`);
-      await box.press('Control+A');
+      await box.press('ControlOrMeta+A');
       await box.press('Backspace');
       await box.pressSequentially('こんにちは');
       await page.waitForTimeout(900);

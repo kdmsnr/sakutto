@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.scope.outputs.code }}
-      wllama: ${{ steps.scope.outputs.wllama }}
       bundle: ${{ steps.scope.outputs.bundle }}
     steps:
       - uses: actions/checkout@v7
@@ -38,12 +37,10 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "wllama=false" >> "$GITHUB_OUTPUT"
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "wllama=true" >> "$GITHUB_OUTPUT"
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -94,21 +91,6 @@ jobs:
       - run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'
-
-  pinned-wllama:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-
-      - name: Check the pinned source and the MV3 patches
-        run: node scripts/wllama/build.ts --check
 
   package:
     needs: changes

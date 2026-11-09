@@ -17,12 +17,11 @@ describe('extension manifest', () => {
     expect(manifest.permissions).toEqual([
       'offscreen',
       'storage',
-      'unlimitedStorage',
       'activeTab',
       'scripting',
       'contextMenus',
     ]);
-    expect(manifest).not.toHaveProperty('host_permissions');
+    expect(manifest.host_permissions).toEqual(['http://127.0.0.1/*']);
     expect(manifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
   });
 
@@ -30,12 +29,10 @@ describe('extension manifest', () => {
     expect(manifest.minimum_chrome_version).toBe('116');
   });
 
-  it('locks the extension pages down to bundled scripts and wasm', () => {
-    expect(manifest.content_security_policy).toEqual({
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
-    });
-    expect(manifest.cross_origin_embedder_policy).toEqual({ value: 'require-corp' });
-    expect(manifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
+  it('does not enable WebAssembly or cross-origin isolation', () => {
+    expect(manifest).not.toHaveProperty('content_security_policy');
+    expect(manifest).not.toHaveProperty('cross_origin_embedder_policy');
+    expect(manifest).not.toHaveProperty('cross_origin_opener_policy');
   });
 
   it('declares the translation shortcuts', () => {

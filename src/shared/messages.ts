@@ -11,7 +11,7 @@ import type { EngineKind } from '@/engine/types';
 import { isSiteHost, type SiteAuto } from '@/dom/sites';
 import type { QualitySample } from './quality';
 import { isQualitySample } from './quality';
-import type { DisplayMode, TierPreference } from './settings';
+import type { DisplayMode, Formality, TierPreference } from './settings';
 import { isTierPreference } from './settings';
 import { isRecord } from './object';
 
@@ -35,6 +35,11 @@ export interface PageStateRequest {
   type: 'page:state';
 }
 
+export interface PageFormRequest {
+  type: 'page:form';
+  form: Formality | null;
+}
+
 export interface PageViewState {
   active: boolean;
   display: DisplayMode;
@@ -45,6 +50,7 @@ export interface PageViewState {
   host: string;
   auto: SiteAuto;
   targetLanguage: string;
+  formOverride?: Formality | null;
   pageLanguage: string | null;
   targetAdjusted: boolean;
   sameLanguage: boolean;
@@ -167,6 +173,14 @@ export function isPageStateRequest(value: unknown): value is PageStateRequest {
   return isRecord(value) && value.type === 'page:state';
 }
 
+export function isPageFormRequest(value: unknown): value is PageFormRequest {
+  return (
+    isRecord(value) &&
+    value.type === 'page:form' &&
+    (value.form === null || value.form === 'plain' || value.form === 'polite')
+  );
+}
+
 export function isPageViewState(value: unknown): value is PageViewState {
   return (
     isRecord(value) &&
@@ -179,6 +193,10 @@ export function isPageViewState(value: unknown): value is PageViewState {
     typeof value.host === 'string' &&
     (value.auto === 'ask' || value.auto === 'always' || value.auto === 'never') &&
     typeof value.targetLanguage === 'string' &&
+    (value.formOverride === undefined ||
+      value.formOverride === null ||
+      value.formOverride === 'plain' ||
+      value.formOverride === 'polite') &&
     (value.pageLanguage === null || typeof value.pageLanguage === 'string') &&
     typeof value.targetAdjusted === 'boolean' &&
     typeof value.sameLanguage === 'boolean' &&
@@ -285,6 +303,21 @@ export async function requestPageState(tabId: number): Promise<PageViewState | n
     const response: unknown = await browser.tabs.sendMessage(tabId, {
       type: 'page:state',
     } satisfies PageStateRequest);
+    return isPageViewState(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestPageForm(
+  tabId: number,
+  form: Formality | null,
+): Promise<PageViewState | null> {
+  try {
+    const response: unknown = await browser.tabs.sendMessage(tabId, {
+      type: 'page:form',
+      form,
+    } satisfies PageFormRequest);
     return isPageViewState(response) ? response : null;
   } catch {
     return null;

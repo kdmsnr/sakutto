@@ -1,16 +1,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The extension's privacy claim is structural: one request, for the pinned model file, and
- * nothing that could carry page text. That claim is easy to keep by hand and easy to lose
- * by accident — one analytics import, one `sendBeacon` in an error path — so it is checked
- * here instead of being trusted to review.
- *
- * `download.ts` is the only file allowed to reach the network, and the request it builds
- * may not grow a body or credentials.
- */
+/** Checks that executable extension code sends requests only to LM Studio on loopback. */
 
 /** Resolved from this file, so the check reads the repository even from another directory. */
 const ROOT = join(import.meta.dirname, '..');
@@ -137,34 +129,54 @@ const NETWORK_SINKS = [
 ];
 
 describe('network surface', () => {
-  it('keeps every network sink in the model download', () => {
+  it('keeps network calls in the loopback client for all entrypoint dependencies', () => {
+    const byPath = new Map(files.map((file) => [file.path, file.code]));
+    const roots = files
+      .filter((file) => /^src\/entrypoints\/.*\.ts$/u.test(file.path))
+      .map((file) => file.path);
+    // Vite bundles the worker through new URL(), rather than an import statement.
+    roots.push('src/engine/lmstudio/worker.ts');
+    const visited = new Set<string>();
+    const pending = [...roots];
+    while (pending.length > 0) {
+      const path = pending.pop();
+      if (!path || visited.has(path)) continue;
+      visited.add(path);
+      const code = byPath.get(path) ?? '';
+      for (const match of code.matchAll(
+        /\b(?:import|export)\b(?:[^;'"()]*?\bfrom\s*)?\s*['"]([^'"]+)['"]/gu,
+      )) {
+        const specifier = match[1] ?? '';
+        const base = specifier.startsWith('@/')
+          ? `src/${specifier.slice(2)}`
+          : specifier.startsWith('.')
+            ? normalize(join(dirname(path), specifier)).replaceAll('\\', '/')
+            : '';
+        if (!base) continue;
+        for (const candidate of [base, `${base}.ts`, `${base}.svelte`, `${base}/index.ts`]) {
+          if (byPath.has(candidate)) {
+            pending.push(candidate);
+            break;
+          }
+        }
+      }
+    }
     const reaching = files.filter(
       (file) =>
-        /\bfetch\w*\s*\(/u.test(file.code) ||
-        NETWORK_SINKS.some((pattern) => pattern.test(file.code)),
+        visited.has(file.path) &&
+        (/\bfetch\w*\s*\(/u.test(file.code) ||
+          NETWORK_SINKS.some((pattern) => pattern.test(file.code))),
     );
-
-    expect(reaching.map((file) => file.path)).toEqual(['src/engine/model/download.ts']);
+    expect(reaching.map((file) => file.path)).toEqual(['src/engine/lmstudio/client.ts']);
   });
 
-  it('sends no body and no credentials with the model request', () => {
-    const download = files.find((file) => file.path === 'src/engine/model/download.ts');
-    if (!download) throw new Error('download.ts was not found');
-
-    const call = /\bfetchImpl\(([^;]*?)\);/u.exec(download.code)?.[1] ?? '';
-    expect(call).toContain('source.url');
-    expect(call).not.toMatch(/\bbody\s*:/u);
-    expect(call).not.toMatch(/\bcredentials\s*:/u);
-    expect(call).not.toMatch(/\bmethod\s*:/u);
-  });
-
-  it('loads the model into the runtime from memory, not from a url', () => {
-    const runtime = files.find((file) => file.path === 'src/engine/in-browser/runtime.ts');
-    if (!runtime) throw new Error('runtime.ts was not found');
-
-    // `loadModel` takes blobs. A url form would let wllama fetch on its own.
-    expect(runtime.code).toMatch(/loadModel\(\s*\[file\]/u);
-    expect(runtime.code).not.toMatch(/loadModel\(\s*\[?['"`]http/u);
+  it('constructs the only API address from a validated loopback port', () => {
+    const client = files.find((file) => file.path === 'src/engine/lmstudio/client.ts');
+    if (!client) throw new Error('LM Studio client not found');
+    expect(client.code).toContain('http://127.0.0.1:${port}/v1');
+    expect(client.code).toMatch(/port < 1 \|\| port > 65535/u);
+    expect(client.code).toMatch(/this\.json\(\s*'\/models'/u);
+    expect(client.code).toMatch(/this\.json\(\s*'\/chat\/completions'/u);
   });
 
   it('does not add a remote script, stylesheet, or font to an extension page', () => {
@@ -176,7 +188,6 @@ describe('network surface', () => {
     expect(count(/\.css$/u)).toBeGreaterThan(0);
     expect(count(/\.svelte$/u)).toBeGreaterThan(0);
     expect(count(/\.ts$/u)).toBeGreaterThan(0);
-    expect(count(/^public\/.*\.js$/u)).toBeGreaterThan(0);
 
     const remote = markup
       .map((file) => ({ path: file.path, urls: remoteReferences(file.code) }))

@@ -1,10 +1,5 @@
 import { defineConfig } from 'wxt';
 
-const fixtureHostPermissions =
-  process.env.SAKUTTO_FAKE_ENGINE === '1' || process.env.SAKUTTO_E2E_REAL === '1'
-    ? ['http://127.0.0.1/*', 'http://localhost/*']
-    : null;
-
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-svelte'],
@@ -21,18 +16,10 @@ export default defineConfig({
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
     minimum_chrome_version: '116',
-    permissions: [
-      'offscreen',
-      'storage',
-      'unlimitedStorage',
-      'activeTab',
-      'scripting',
-      'contextMenus',
-    ],
+    permissions: ['offscreen', 'storage', 'activeTab', 'scripting', 'contextMenus'],
     optional_host_permissions: ['https://*/*', 'http://*/*'],
-    // Release builds ask for site access only when auto-translate is turned on.
-    // The e2e build may script the local fixtures directly.
-    ...(fixtureHostPermissions ? { host_permissions: fixtureHostPermissions } : {}),
+    // The API accepts requests only on the local loopback host.
+    host_permissions: ['http://127.0.0.1/*'],
     commands: {
       'translate-page': {
         suggested_key: { default: 'Alt+A' },
@@ -52,11 +39,6 @@ export default defineConfig({
         suggested_key: { default: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },
-    },
-    cross_origin_embedder_policy: { value: 'require-corp' },
-    cross_origin_opener_policy: { value: 'same-origin' },
-    content_security_policy: {
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
     },
     icons: {
       16: 'icon/16.png',

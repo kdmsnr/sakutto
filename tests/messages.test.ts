@@ -11,6 +11,7 @@ import {
   isModelUseRequest,
   isPageInfo,
   isPageInfoRequest,
+  isPageFormRequest,
   isPageViewState,
   isShortcutSnapshot,
 } from '@/shared/messages';
@@ -191,5 +192,14 @@ describe('page view state contract', () => {
     const { total, ...missing } = base;
     expect(total).toBe(3);
     expect(isPageViewState({ ...missing, skipped: 0 })).toBe(false);
+  });
+
+  it('validates page-only tone overrides', () => {
+    expect(isPageFormRequest({ type: 'page:form', form: null })).toBe(true);
+    expect(isPageFormRequest({ type: 'page:form', form: 'plain' })).toBe(true);
+    expect(isPageFormRequest({ type: 'page:form', form: 'polite' })).toBe(true);
+    expect(isPageFormRequest({ type: 'page:form', form: 'auto' })).toBe(false);
+    expect(isPageViewState({ ...base, formOverride: 'polite' })).toBe(true);
+    expect(isPageViewState({ ...base, formOverride: 'auto' })).toBe(false);
   });
 });

@@ -69,7 +69,8 @@ describe('packaged license text', () => {
    */
   it("keeps the build script's copy list in step with the tested list", () => {
     const script = readFileSync(new URL('../scripts/sync-licenses.mjs', import.meta.url), 'utf8');
-    const listed = [...script.matchAll(/^\s+'([^']+\.txt)',$/gmu)].map((match) => match[1]);
+    const copyList = script.match(/const LICENSE_FILE_COPIES = \[([\s\S]*?)\];/u)?.[1] ?? '';
+    const listed = [...copyList.matchAll(/^\s+'([^']+\.txt)',$/gmu)].map((match) => match[1]);
     const inScript = listed.filter((name) => name !== 'LICENSE.txt' && name !== 'NOTICE.txt');
     expect(new Set(inScript)).toEqual(new Set(LICENSE_FILE_COPIES));
   });

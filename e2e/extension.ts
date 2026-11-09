@@ -11,9 +11,6 @@ const ALLOWED_REQUEST = [
   /^devtools:/,
   /^http:\/\/127\.0\.0\.1(?::\d+)?\//,
   /^http:\/\/localhost(?::\d+)?\//,
-  /^https:\/\/huggingface\.co\//,
-  /^https:\/\/cdn-lfs\.huggingface\.co\//,
-  /^https:\/\/(?:[a-z0-9-]+\.)*hf\.co\//,
   /^data:/,
   /^blob:/,
   /^about:/,
@@ -46,7 +43,8 @@ export async function loadExtension(lang: 'en-US' | 'ja'): Promise<LoadedExtensi
   ];
   const context = await chromium.launchPersistentContext(profileDirectory, {
     headless: false,
-    ...(lang === 'en-US' ? { locale: 'en-US' } : {}),
+    ...(process.env.SAKUTTO_E2E_CHROME ? { executablePath: process.env.SAKUTTO_E2E_CHROME } : {}),
+    locale: lang === 'ja' ? 'ja-JP' : 'en-US',
     args,
   });
 

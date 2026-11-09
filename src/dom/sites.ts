@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { GlossaryEntry } from '@/engine/types';
 import { normalizeGlossary } from '@/shared/glossary';
-import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import { isLanguageCode, type TargetLanguage } from '@/shared/languages';
 import { isRecord } from '@/shared/object';
 import {
   isComposePlacement,
@@ -47,7 +47,7 @@ export function normalizeSiteRule(host: string, value: unknown): SiteRule | null
   };
 
   if (value.display === 'bilingual' || value.display === 'replace') rule.display = value.display;
-  if (isTargetLanguage(value.targetLanguage)) rule.targetLanguage = value.targetLanguage;
+  if (isLanguageCode(value.targetLanguage)) rule.targetLanguage = value.targetLanguage;
   const glossary = normalizeGlossary(value.glossary);
   if (glossary.length > 0) rule.glossary = glossary;
   if (isComposePlacement(value.composePlacement)) rule.composePlacement = value.composePlacement;

@@ -9,9 +9,16 @@ import {
   translationStyleKeepsContrast,
   uiShadow,
 } from '@/dom/overlay';
-import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
+import {
+  PageSession,
+  preferencesFor,
+  type PageEngine,
+  type SessionPreferences,
+} from '@/dom/session';
 import { JobScheduler } from '@/engine/queue/scheduler';
+import { EngineError } from '@/engine/errors';
 import type { TranslateOptions } from '@/engine/types';
+import { createDefaultSettings } from '@/shared/settings';
 
 const labels = {
   original: '原文',
@@ -19,6 +26,7 @@ const labels = {
   machine: 'PLaMo による機械翻訳です。',
   selectionPending: '翻訳しています…',
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
+  connectionFailed: 'LM Studio に接続できません。',
   selectionTitle: '選択したテキスト',
   selectionIcon: '選択したテキストを翻訳します',
   close: '閉じる',
@@ -106,6 +114,102 @@ afterEach(() => {
 });
 
 describe('segment restore', () => {
+  it('resets the page tone on browser navigation events from another world', () => {
+    const view = document.defaultView;
+    if (!view) throw new Error('missing window');
+    const navigation = new EventTarget();
+    Object.defineProperty(view, 'navigation', { value: navigation, configurable: true });
+    // This reference bypasses the content script's patched history methods, like page JavaScript.
+    const pagePushState = view.history.pushState.bind(view.history);
+    const session = start(
+      document,
+      immediate((text) => text),
+      { form: 'plain' },
+    );
+    try {
+      session.setPageForm('polite');
+      pagePushState({}, '', '/another-page');
+      navigation.dispatchEvent(new Event('currententrychange'));
+      expect(session.state().formOverride).toBeNull();
+
+      session.setPageForm('polite');
+      pagePushState({}, '', '?article=next');
+      navigation.dispatchEvent(new Event('currententrychange'));
+      expect(session.state().formOverride).toBeNull();
+
+      session.setPageForm('polite');
+      pagePushState({}, '', '#section');
+      navigation.dispatchEvent(new Event('currententrychange'));
+      expect(session.state().formOverride).toBe('polite');
+
+      pagePushState({}, '', '#/route');
+      navigation.dispatchEvent(new Event('currententrychange'));
+      expect(session.state().formOverride).toBeNull();
+    } finally {
+      Reflect.deleteProperty(view, 'navigation');
+    }
+  });
+
+  it('keeps a page tone override separate from the changing default and resets it for a new SPA page', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello from this page.</p>';
+    const forms: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        forms.push(options.form);
+        for (const segment of segments)
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+      }),
+      { form: 'plain' },
+    );
+    await session.translate();
+    await session.whenIdle();
+    session.setPageForm('polite');
+    await session.whenIdle();
+    expect(forms).toEqual(['plain', 'polite']);
+    expect(session.state().formOverride).toBe('polite');
+    session.setPreferences(preferences({ form: 'plain', context: true }));
+    await session.whenIdle();
+    expect(forms.at(-1)).toBe('polite');
+    session.setPageForm(null);
+    await session.whenIdle();
+    expect(forms.at(-1)).toBe('plain');
+    session.setPageForm('polite');
+    document.defaultView?.history.pushState({}, '', '/tone-next-page');
+    expect(session.state().formOverride).toBeNull();
+  });
+
+  it('retranslates a selected passage when this page tone changes', async () => {
+    const forms: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        forms.push(options.form);
+        for (const segment of segments)
+          yield {
+            id: segment.id,
+            final: `${options.form}:${segment.text}`,
+            engine: 'plamo' as const,
+          };
+      }),
+      { form: 'plain' },
+    );
+    session.translateSelection('Hello', new DOMRect(1, 1, 10, 10));
+    await session.whenIdle();
+    session.setPageForm('polite');
+    await session.whenIdle();
+    expect(forms).toEqual(['plain', 'polite']);
+    expect(uiShadow(document.querySelector('sakutto-pop'))?.textContent).toContain('polite:Hello');
+  });
+
+  it('passes the context preference from saved settings to the page session', () => {
+    const settings = { ...createDefaultSettings('ja'), useContext: true };
+    expect(
+      preferencesFor(settings, { host: 'example.com', auto: 'ask' }, 'example.com').context,
+    ).toBe(true);
+  });
+
   it('rewrites inline text through placeholders and restores every node', () => {
     document.body.innerHTML = '<p>Hello <a href="https://example.com">world</a> today</p>';
     const block = document.querySelector('p');
@@ -541,6 +645,24 @@ describe('page session', () => {
 
     expect(contexts.some((context) => context?.includes('Release notes'))).toBe(true);
     expect(contexts.some((context) => context?.includes('First paragraph'))).toBe(true);
+  });
+
+  it('shows a connection error and preserves the source when LM Studio is unreachable', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Original paragraph remains visible.</p>';
+    const session = start(
+      document,
+      engineOf(async function* () {
+        yield* [];
+        throw new EngineError('server-unreachable', 'Connection failed');
+      }),
+    );
+    await session.translate();
+    await session.whenIdle();
+    expect(document.querySelector('p')?.textContent).toBe('Original paragraph remains visible.');
+    expect(uiShadow(document.querySelector('sakutto-bar'))?.textContent).toContain(
+      'LM Studio に接続できません。',
+    );
   });
 
   it('splits a paragraph longer than a piece into runs of sentences', async () => {

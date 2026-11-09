@@ -1,4 +1,10 @@
 export type EngineErrorCode =
+  | 'server-unreachable'
+  | 'timeout'
+  | 'http-error'
+  | 'invalid-response'
+  | 'empty-response'
+  | 'truncated-response'
   | 'invalid-input'
   | 'unsupported-language'
   | 'model-missing'
@@ -34,6 +40,12 @@ export function isEngineError(value: unknown): value is EngineError {
 }
 
 const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
+  'server-unreachable',
+  'timeout',
+  'http-error',
+  'invalid-response',
+  'empty-response',
+  'truncated-response',
   'invalid-input',
   'unsupported-language',
   'model-missing',

@@ -213,18 +213,17 @@ are slow enough to be flaky on shared runners.
 
 ## History and the checked-in runs
 
-`bench/history/pages.jsonl` holds one **mock** run, `mock-baseline-0340393`, taken on a 4-core
-Linux VM with headless Chromium 156 and `--samples 2`. Its commit is `87c341d` and its records
-say `"mode": "mock"` and `"dirty": false`. A mock run measures the scheduler, not the model, so
-those rows are not a translation speed.
+`bench/history/pages.jsonl` contains historical measurements from the original browser-based
+engine. They are retained for reference and do not measure the current LM Studio integration.
+A mock run measures the scheduler, not the model, so it is not a translation speed.
 
 `bench/results/pages/live-windows-09db364-20261107.md` is a **live** run of the same fixtures on
 Windows with the real model, commit `a4946bd`, WebGPU, 8 threads, `--samples 3`. Three fixtures
 in it timed out and have no full-page number. It is one machine's measurement, not a speed the
 extension promises.
 
-A live run needs the wasm build from `pnpm build:wllama` and the model in `bench/.cache/`. Run
-`pnpm bench:live` on a machine that has both to add another line.
+The old live runs used the browser-based model runtime and cannot be reproduced with the current
+LM Studio build without adapting the benchmark harness.
 
 An automatic comparison only considers a run with the **same mode and the same set of fixtures**. A `--only long-article` run is not put next to a
 eight-page run, and a live run is not put next to the mock baseline; in both cases the bench says

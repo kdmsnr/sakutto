@@ -3,6 +3,7 @@ import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
   isChromeOnlyLanguage,
+  isLanguageCode,
   isTargetLanguage,
   resolveTargetLanguage,
   type TargetLanguage,
@@ -59,6 +60,9 @@ export interface LicenseConsent {
 
 export interface Settings {
   schemaVersion: number;
+  lmStudioPort: number;
+  lmStudioModel: string;
+  useContext: boolean;
   targetLanguage: TargetLanguage;
   form: Formality;
   display: DisplayMode;
@@ -89,6 +93,9 @@ export interface Settings {
 export type SettingsPatch = Partial<
   Pick<
     Settings,
+    | 'lmStudioPort'
+    | 'lmStudioModel'
+    | 'useContext'
     | 'targetLanguage'
     | 'form'
     | 'display'
@@ -109,8 +116,11 @@ export type SettingsPatch = Partial<
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   schemaVersion: SETTINGS_SCHEMA_VERSION,
+  lmStudioPort: 1234,
+  lmStudioModel: '',
+  useContext: false,
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
-  form: 'polite',
+  form: 'plain',
   display: 'replace',
   consent: null,
   highQualityDismissed: false,
@@ -152,10 +162,19 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
 
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
-    targetLanguage: isTargetLanguage(value.targetLanguage)
+    lmStudioPort:
+      typeof value.lmStudioPort === 'number' &&
+      Number.isInteger(value.lmStudioPort) &&
+      value.lmStudioPort >= 1 &&
+      value.lmStudioPort <= 65535
+        ? value.lmStudioPort
+        : 1234,
+    lmStudioModel: typeof value.lmStudioModel === 'string' ? value.lmStudioModel.slice(0, 512) : '',
+    useContext: value.useContext === true,
+    targetLanguage: isLanguageCode(value.targetLanguage)
       ? value.targetLanguage
       : defaults.targetLanguage,
-    form: value.form === 'plain' ? 'plain' : 'polite',
+    form: value.form === 'polite' ? 'polite' : 'plain',
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,

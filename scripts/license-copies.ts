@@ -9,10 +9,6 @@
  * wording is unchanged.
  */
 export const LICENSE_FILE_COPIES = [
-  'llama.cpp-LICENSE.txt',
-  'wllama-LICENSE.txt',
-  'emscripten-LICENSE.txt',
-  'dawn-LICENSE.txt',
   'PLaMo-Community-License-en.txt',
   'PLaMo-Community-License-ja.txt',
   'svelte-LICENSE.txt',

@@ -1,5 +1,7 @@
 # Chrome ウェブストア掲載文
 
+> Historical documentation for the upstream in-browser runtime. It has not been updated for this LM Studio fork and must not be used for publication. See [BUILDING.md](BUILDING.md) for current build instructions.
+
 公開済みの掲載 https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl に入っている文です。日本語が主で、英語は後半です。拡張機能の動作は変えません。
 
 文字数は、各コードブロックの中身です。行と行の間の改行を含み、最後の行の後ろの余分な改行は含みません。絵文字はありません。名前は 75、概要は 132、詳細な説明は 16000 が上限です。権限の理由とリモートコードの欄は、ダッシュボード側の上限が短いことがあるため、それぞれ 1000 文字未満にしています。

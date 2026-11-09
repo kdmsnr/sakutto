@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Sakutto - ローカルAI翻訳",
+    "message": "lmsakutto",
     "description": "拡張機能の名前。"
   },
   "extensionShortName": {
-    "message": "Sakutto",
+    "message": "lmsakutto",
     "description": "短い名前。"
   },
   "extensionDescription": {
@@ -157,10 +157,10 @@
     "message": "プライバシー"
   },
   "privacyBody": {
-    "message": "この拡張機能は、ページの本文をサーバーへ送りません。テレメトリはありません。"
+    "message": "翻訳するテキストは、この端末上の LM Studio に送信されます。外部のクラウドサービスへは送信しません。"
   },
   "privacyDestinations": {
-    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。"
+    "message": "接続先はローカルホストです。"
   },
   "privacyPolicyLink": {
     "message": "プライバシーポリシー"
@@ -187,7 +187,7 @@
     "message": "NOTICE"
   },
   "licenseModelNote": {
-    "message": "モデルの重みは同梱していません。この端末に保存されていないとき、Hugging Face の公式リポジトリから取得します。"
+    "message": "モデルの重みは同梱していません。LM Studioで別途インストールしてください。"
   },
   "openOnboarding": {
     "message": "オンボーディングを開く"
@@ -1001,5 +1001,106 @@
   },
   "composePlacementHandle": {
     "message": "ドラッグしてバーを好きな位置へ"
+  },
+  "lmHeading": {
+    "message": "LM Studio"
+  },
+  "lmPort": {
+    "message": "ローカル API のポート"
+  },
+  "lmPortInvalid": {
+    "message": "1〜65535 のポート番号を入力してください。"
+  },
+  "lmModel": {
+    "message": "モデル"
+  },
+  "lmChoose": {
+    "message": "モデルを選択"
+  },
+  "lmRefresh": {
+    "message": "接続テスト・モデル一覧を更新"
+  },
+  "lmChecking": {
+    "message": "LM Studio に接続中…"
+  },
+  "lmConnected": {
+    "message": "LM Studio に接続済み"
+  },
+  "lmUnavailable": {
+    "message": "LM Studio に接続できません。ローカルサーバーを起動し、ポートを確認してください。"
+  },
+  "lmTimeout": {
+    "message": "LM Studio の応答がタイムアウトしました。"
+  },
+  "lmInvalid": {
+    "message": "LM Studio からの応答を読み取れませんでした。"
+  },
+  "lmHttp": {
+    "message": "LM Studio の API でエラーが発生しました。サーバーを確認してください。"
+  },
+  "lmNoModel": {
+    "message": "設定でモデルを選択してください。"
+  },
+  "lmNoModels": {
+    "message": "モデルが見つかりません。LM Studio でモデルをインストールしてください。"
+  },
+  "lmModelMissing": {
+    "message": "選択したモデルが一覧にありません。"
+  },
+  "lmModelHint": {
+    "message": "一覧に表示されてもロード済みとは限りません。LM Studio でモデルをロードしてください。"
+  },
+  "lmContext": {
+    "message": "周囲のテキストを参考情報として使う"
+  },
+  "lmModelLabel": {
+    "message": "モデル: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "lmSourceAuto": {
+    "message": "翻訳元: 自動判定"
+  },
+  "lmSource": {
+    "message": "翻訳元の言語"
+  },
+  "lmAuto": {
+    "message": "自動判定"
+  },
+  "lmError": {
+    "message": "翻訳に失敗しました。LM Studio のサーバーが起動し、選択したモデルがロードされているか確認してください。"
+  },
+  "lmPageConnectionFailed": {
+    "message": "LM Studioに接続できません。ローカルサーバーを起動し、設定のポート番号を確認してください。"
+  },
+  "lmTranslateSelection": {
+    "message": "選択したテキストを翻訳"
+  },
+  "lmEmpty": {
+    "message": "LM Studio から空の訳文が返されました。"
+  },
+  "lmTruncated": {
+    "message": "訳文が途中で切れました。原文を短くして再試行してください。"
+  },
+  "lmModelFailed": {
+    "message": "選択したモデルが見つからないか、ロードできません。LM Studio と設定のモデルを確認してください。"
+  },
+  "lmCommunication": {
+    "message": "拡張機能の翻訳処理と通信できません。拡張機能を再読み込みして再試行してください。"
+  },
+  "lmAutoDirection": {
+    "message": "日本語と英語を自動で切り替える"
+  },
+  "formalityPageLabel": {
+    "message": "このページの文体（日本語）"
+  },
+  "formalityUseDefault": {
+    "message": "共通設定に従う"
+  },
+  "targetSiteHint": {
+    "message": "このサイトに適用"
   }
 }

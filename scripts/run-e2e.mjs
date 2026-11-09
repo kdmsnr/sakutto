@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process';
 
 const real = process.env.SAKUTTO_E2E_REAL === '1';
+const mockApi = process.env.SAKUTTO_E2E_MOCK_API === '1';
 const env = { ...process.env };
-if (!real) env.SAKUTTO_FAKE_ENGINE = '1';
+if (!real && !mockApi) env.SAKUTTO_FAKE_ENGINE = '1';
 
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
@@ -17,7 +18,7 @@ function run(command, args) {
   });
 }
 
-if (real) {
+if (real || mockApi) {
   await run(pnpm, ['build']);
 } else {
   await run('node', ['scripts/sync-licenses.mjs']);
@@ -27,4 +28,9 @@ if (real) {
 if (process.env.PLAYWRIGHT_SKIP_INSTALL !== '1') {
   await run(pnpm, ['exec', 'playwright', 'install', 'chromium']);
 }
-await run(pnpm, ['exec', 'playwright', 'test']);
+await run(
+  pnpm,
+  mockApi
+    ? ['exec', 'playwright', 'test', 'e2e/lmstudio-api.spec.ts']
+    : ['exec', 'playwright', 'test'],
+);

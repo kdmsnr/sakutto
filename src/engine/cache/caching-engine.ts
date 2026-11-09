@@ -38,6 +38,7 @@ export class CachingEngine implements IdentifiedEngine {
         text: segment.text,
         src: options.src,
         glossary: options.glossary,
+        context: options.context,
       });
       keys.set(segment.id, key);
 

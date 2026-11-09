@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Sakutto - Traducción local de IA",
+    "message": "lmsakutto",
     "description": "Extension name."
   },
   "extensionShortName": {
-    "message": "Sakutto",
+    "message": "lmsakutto",
     "description": "Short extension name."
   },
   "extensionDescription": {
@@ -157,10 +157,10 @@
     "message": "Privacidad"
   },
   "privacyBody": {
-    "message": "Esta extensión no envía texto de página a un servidor. No hay telemetría."
+    "message": "Translation text is sent to LM Studio on this device, not to an external cloud service."
   },
   "privacyDestinations": {
-    "message": "La solicitud propia de la extensión es la descarga del modelo. Comienza en huggingface.co y sigue el redireccionamiento de Hugging Face a su CDN. El texto de la página no se incluye. Chrome descarga sus paquetes de idiomas por sí mismo."
+    "message": "The API connection is restricted to localhost."
   },
   "privacyPolicyLink": {
     "message": "Política de privacidad"
@@ -187,7 +187,7 @@
     "message": "AVISO"
   },
   "licenseModelNote": {
-    "message": "Los pesos del modelo no se agrupan. Se descargan desde el repositorio oficial de Hugging Face cuando aún no están almacenados en este dispositivo."
+    "message": "Model weights are not bundled. Install them separately in LM Studio."
   },
   "openOnboarding": {
     "message": "Onboarding abierto"
@@ -1001,5 +1001,106 @@
   },
   "composePlacementHandle": {
     "message": "Arrastra para mover la barra a cualquier sitio"
+  },
+  "lmHeading": {
+    "message": "LM Studio"
+  },
+  "lmPort": {
+    "message": "Local API port"
+  },
+  "lmPortInvalid": {
+    "message": "Enter a port number from 1 to 65535."
+  },
+  "lmModel": {
+    "message": "Model"
+  },
+  "lmChoose": {
+    "message": "Select a model"
+  },
+  "lmRefresh": {
+    "message": "Test connection and refresh models"
+  },
+  "lmChecking": {
+    "message": "Connecting to LM Studio…"
+  },
+  "lmConnected": {
+    "message": "Connected to LM Studio"
+  },
+  "lmUnavailable": {
+    "message": "Cannot connect to LM Studio. Start its local server and check the port."
+  },
+  "lmTimeout": {
+    "message": "LM Studio did not respond in time."
+  },
+  "lmInvalid": {
+    "message": "LM Studio returned an invalid response."
+  },
+  "lmHttp": {
+    "message": "LM Studio returned an API error. Check the server."
+  },
+  "lmNoModel": {
+    "message": "Select a model in settings."
+  },
+  "lmNoModels": {
+    "message": "No models found. Install a model in LM Studio."
+  },
+  "lmModelMissing": {
+    "message": "The selected model is not in the model list."
+  },
+  "lmModelHint": {
+    "message": "Model availability does not indicate whether it is loaded. Load the model in LM Studio."
+  },
+  "lmContext": {
+    "message": "Use surrounding text as context"
+  },
+  "lmModelLabel": {
+    "message": "Model: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "lmSourceAuto": {
+    "message": "Source: automatic"
+  },
+  "lmSource": {
+    "message": "Source language"
+  },
+  "lmAuto": {
+    "message": "Automatic"
+  },
+  "lmError": {
+    "message": "Translation failed. Check that the LM Studio server is running and the selected model is loaded."
+  },
+  "lmPageConnectionFailed": {
+    "message": "Cannot connect to LM Studio. Start the local server and check the port in settings."
+  },
+  "lmTranslateSelection": {
+    "message": "Translate selected text"
+  },
+  "lmEmpty": {
+    "message": "LM Studio returned an empty translation."
+  },
+  "lmTruncated": {
+    "message": "The translation was cut off. Try a shorter text."
+  },
+  "lmModelFailed": {
+    "message": "The selected model was not found or could not be loaded. Check LM Studio and select a model in settings."
+  },
+  "lmCommunication": {
+    "message": "The extension could not communicate with its translation process. Reload the extension and try again."
+  },
+  "lmAutoDirection": {
+    "message": "Automatically switch between Japanese and English"
+  },
+  "formalityPageLabel": {
+    "message": "Japanese tone for this page"
+  },
+  "formalityUseDefault": {
+    "message": "Use default setting"
+  },
+  "targetSiteHint": {
+    "message": "Applies to this site"
   }
 }

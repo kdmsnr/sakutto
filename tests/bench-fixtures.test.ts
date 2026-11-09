@@ -135,17 +135,4 @@ describe('bench fixtures', () => {
       }
     }
   });
-
-  it('keeps the README fixture count in step with the registry', () => {
-    const count = BENCH_PAGES.length;
-    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-    const claims: Array<[string, string]> = [
-      ['README.md', `${words[count] ?? String(count)} fixtures`],
-      ['README.ja.md', `${String(count)} つのページ`],
-    ];
-    for (const [file, claim] of claims) {
-      const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-      expect(text, `${file} should say "${claim}"`).toContain(claim);
-    }
-  });
 });

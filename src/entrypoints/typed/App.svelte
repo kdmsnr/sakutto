@@ -1,23 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
   import { isEngineError } from '@/engine/errors';
-  import type { EngineStatus } from '@/shared/engine-status';
   import { currentUiLanguage, t } from '@/shared/i18n';
-  import {
-    CHROME_ONLY_LANGUAGES,
-    displayLanguage,
-    isChromeOnlyLanguage,
-    type TargetLanguage,
-  } from '@/shared/languages';
-  import {
-    isModelProgressMessage,
-    requestEngineStatus,
-    requestModelDownload,
-    requestModelInspect,
-  } from '@/shared/messages';
-  import { hasLicenseConsent } from '@/shared/agreement';
+  import { displayLanguage, isChromeOnlyLanguage, type TargetLanguage } from '@/shared/languages';
+  import { lmStudioErrorLabel, requestLMStudioModels } from '@/shared/lmstudio-status';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
@@ -26,60 +13,46 @@
     isTranslateShortcut,
     normalizeTypedInput,
     planTypedTranslation,
-    typedReadiness,
-    type TypedReadiness,
   } from '@/shared/typed-translation';
   import LanguageField from '@/ui/LanguageField.svelte';
   import { typedEngine } from './engine';
 
   let settings = $state<Settings | null>(null);
   let uiLanguage = $state(currentUiLanguage());
-  let engineStatus = $state<EngineStatus | null>(null);
+  let connection = $state<'checking' | 'connected' | 'error'>('checking');
+  let connectionError = $state<string | undefined>();
+  let sourceLanguage = $state('');
+  let autoDirection = $state(false);
   let sourceText = $state('');
   let result = $state('');
   let translating = $state(false);
-  let resultError = $state(false);
+  let resultError = $state<string | null>(null);
   let copied = $state(false);
   let copyFailed = $state(false);
-  let downloadBusy = $state(false);
-  let downloadFailed = $state(false);
   let abortController = $state<AbortController | null>(null);
 
   let targetLanguage = $derived<TargetLanguage>(settings?.targetLanguage ?? 'ja');
   let plan = $derived(planTypedTranslation(targetLanguage));
   let trimmed = $derived(normalizeTypedInput(sourceText));
   let tooLong = $derived(trimmed.length > MAX_TYPED_CHARS);
-  let readiness = $derived<TypedReadiness>(
-    typedReadiness({
-      consent: hasLicenseConsent(settings),
-      modelState: engineStatus?.model.state ?? 'absent',
-      plamoReady: engineStatus?.plamoReady ?? false,
-    }),
-  );
   let chromeOnlyTarget = $derived(isChromeOnlyLanguage(targetLanguage));
   let canTranslate = $derived(
-    !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
+    !translating &&
+      trimmed.length > 0 &&
+      !tooLong &&
+      !chromeOnlyTarget &&
+      Boolean(settings?.lmStudioModel),
   );
-  let targetLabel = $derived(displayLanguage(targetLanguage, uiLanguage));
+  let targetLabel = $derived(
+    autoDirection ? t('lmAutoDirection') : displayLanguage(targetLanguage, uiLanguage),
+  );
   let hasAnything = $derived(sourceText.length > 0 || result.length > 0);
 
   async function refreshEngine() {
-    engineStatus = await requestEngineStatus();
-    if (!engineStatus) {
-      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
-      if (inspected) {
-        engineStatus = {
-          model: inspected,
-          backend: null,
-          tier: null,
-          threads: null,
-          parallel: null,
-          plamoReady: inspected.state === 'loaded',
-          chromeSupported: false,
-          active: null,
-        };
-      }
-    }
+    connection = 'checking';
+    const response = await requestLMStudioModels();
+    connectionError = response.error;
+    connection = response.error ? 'error' : 'connected';
   }
 
   async function changeTarget(language: TargetLanguage) {
@@ -93,7 +66,7 @@
 
   function resetResult() {
     result = '';
-    resultError = false;
+    resultError = null;
     copied = false;
     copyFailed = false;
   }
@@ -117,8 +90,9 @@
     try {
       const segments = [{ id: 'typed', text: trimmed }];
       for await (const chunk of typedEngine.translate(segments, {
-        tgt: targetLanguage,
-        form: settings?.form ?? 'polite',
+        tgt: autoDirection ? 'auto' : targetLanguage,
+        ...(!autoDirection && sourceLanguage ? { src: sourceLanguage } : {}),
+        form: settings?.form ?? 'plain',
         priority: 0,
         signal: controller.signal,
         ...(settings && settings.glossary.length > 0 ? { glossary: settings.glossary } : {}),
@@ -131,11 +105,15 @@
           result = text;
         }
       }
-      if (text.trim().length === 0) resultError = true;
+      if (text.trim().length === 0) resultError = 'empty-response';
+      else {
+        connection = 'connected';
+        connectionError = undefined;
+      }
     } catch (error) {
       if (!controller.signal.aborted) {
-        resultError = true;
-        if (isEngineError(error)) await refreshEngine();
+        resultError = isEngineError(error) ? error.code : 'unknown';
+        if (isEngineError(error) && error.code === 'server-unreachable') await refreshEngine();
       }
     } finally {
       if (abortController === controller) {
@@ -175,33 +153,14 @@
    * label, and the reader had to select the result and paste it back by hand.
    */
   function swap() {
-    if (!plan.other) return;
+    if (!plan.other || autoDirection) return;
     const carried = result.trim();
     stop();
     resetResult();
     if (carried.length > 0) sourceText = carried;
+    if (sourceLanguage)
+      sourceLanguage = targetLanguage === 'ja' || targetLanguage === 'en' ? targetLanguage : '';
     void changeTarget(plan.other);
-  }
-
-  async function startDownload() {
-    if (downloadBusy) return;
-    downloadBusy = true;
-    downloadFailed = false;
-    try {
-      const started = await requestModelDownload(DEFAULT_MODEL_ID);
-      if (!started) downloadFailed = true;
-    } catch {
-      downloadFailed = true;
-    } finally {
-      downloadBusy = false;
-      await refreshEngine();
-    }
-  }
-
-  function openOnboarding() {
-    void browser.tabs
-      .create({ url: browser.runtime.getURL('/onboarding.html') })
-      .catch(() => undefined);
   }
 
   function openOptions() {
@@ -212,12 +171,6 @@
     const unsubscribeSettings = subscribeSettings((next) => {
       settings = next;
     });
-    const onMessage = (message: unknown) => {
-      if (!isModelProgressMessage(message)) return;
-      void refreshEngine();
-    };
-    browser.runtime.onMessage.addListener(onMessage);
-
     void loadSettings()
       .then((loaded) => {
         settings = loaded;
@@ -228,12 +181,9 @@
 
     return () => {
       unsubscribeSettings();
-      browser.runtime.onMessage.removeListener(onMessage);
       abortController?.abort();
     };
   });
-
-  const chromeOnlyNames = CHROME_ONLY_LANGUAGES.map((code) => displayLanguage(code, uiLanguage));
 </script>
 
 <main class="page">
@@ -249,24 +199,41 @@
     <h2 id="typed-heading" class="visually-hidden">{t('typedHeading')}</h2>
 
     <div class="direction">
-      <LanguageField value={targetLanguage} {uiLanguage} onChange={changeTarget} />
+      <label class="field"
+        ><span>{t('lmSource')}</span><select bind:value={sourceLanguage} disabled={autoDirection}
+          ><option value="">{t('lmAuto')}</option><option value="en"
+            >{displayLanguage('en', uiLanguage)}</option
+          ><option value="ja">{displayLanguage('ja', uiLanguage)}</option></select
+        ></label
+      >
+      <LanguageField
+        value={targetLanguage}
+        {uiLanguage}
+        onChange={(language) => {
+          autoDirection = false;
+          void changeTarget(language);
+        }}
+      />
+      <label
+        ><input type="checkbox" bind:checked={autoDirection} onchange={resetResult} />
+        {t('lmAutoDirection')}</label
+      >
       <button
         class="swap"
         type="button"
         onclick={swap}
+        disabled={autoDirection}
         aria-label={t('typedSwap')}
         title={t('typedSwap')}
       >
         ⇄
       </button>
-      <p class="muted hint">{t('typedDirectionHint', [targetLabel])}</p>
     </div>
 
     <div class="compare">
       <section class="pane" aria-labelledby="typed-source-title">
         <div class="pane-head">
           <h2 id="typed-source-title">{t('typedSourceLabel')}</h2>
-          <span class="pane-note">{t('typedDetectSource')}</span>
           <button class="pane-action" type="button" onclick={clearBoth} disabled={!hasAnything}>
             {t('typedClear')}
           </button>
@@ -308,32 +275,20 @@
 
         {#if chromeOnlyTarget}
           <p class="muted note" role="status">{t('typedChromeOnlyTarget', [targetLabel])}</p>
-        {:else if readiness === 'no-consent'}
+        {:else if !settings?.lmStudioModel}
           <div class="gate">
-            <p>{t('typedNeedsConsent')}</p>
-            <button class="button" type="button" onclick={openOnboarding}>
-              {t('typedOpenOnboarding')}
-            </button>
+            <p>{t('lmNoModel')}</p>
+            <button class="button" type="button" onclick={openOptions}>{t('openOptions')}</button>
           </div>
-        {:else if readiness === 'model-absent' || readiness === 'model-partial'}
-          <div class="gate">
-            <p>{readiness === 'model-partial' ? t('typedModelPartial') : t('typedModelMissing')}</p>
-            <button class="button" type="button" onclick={startDownload} disabled={downloadBusy}>
-              {readiness === 'model-partial' ? t('downloadResume') : t('typedDownloadModel')}
-            </button>
-            {#if downloadFailed}
-              <p class="error" role="alert">{t('errorAction')}</p>
-            {/if}
-          </div>
-        {:else if readiness === 'model-busy'}
-          <p class="muted note" role="status">{t('typedModelBusy')}</p>
-        {:else if readiness === 'model-error'}
-          <p class="error note" role="alert">{t('typedModelError')}</p>
         {:else if resultError}
-          <p class="error note" role="alert">{t('typedFailed')}</p>
+          <p class="error note" role="alert">{t(lmStudioErrorLabel(resultError))}</p>
+        {:else if connection === 'error'}
+          <p class="error note" role="alert">{t(lmStudioErrorLabel(connectionError))}</p>
         {:else if result.trim().length > 0}
-          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
-            >{result}</output
+          <output
+            class="result"
+            lang={autoDirection ? undefined : targetLanguage}
+            aria-labelledby="typed-result-title">{result}</output
           >
         {:else}
           <p class="muted empty">{t('typedResultEmpty')}</p>
@@ -366,7 +321,6 @@
     <button class="link-button" type="button" onclick={openOptions}>{t('openOptions')}</button>
     <p class="notice">{t('machineTranslationNotice')}</p>
     <p class="notice">{t('unofficialNotice')}</p>
-    <p class="notice">{t('typedChromeOnlyNote', [chromeOnlyNames.join(t('listSeparator'))])}</p>
   </footer>
 </main>
 
@@ -453,11 +407,6 @@
     background: var(--surface-muted);
   }
 
-  .hint {
-    flex: 1 1 240px;
-    padding-bottom: 8px;
-    font-size: 12px;
-  }
   .compare {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

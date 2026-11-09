@@ -100,6 +100,16 @@ describe('engine host protocol', () => {
     expect(isEngineHostRequest(request({ priority: Number.POSITIVE_INFINITY }))).toBe(false);
     expect(isEngineHostRequest(request({ priority: 101 }))).toBe(false);
     expect(isEngineHostRequest(request({ priority: -101 }))).toBe(false);
+    expect(isEngineHostRequest(request({ tgt: 'auto' }))).toBe(true);
+    expect(
+      isEngineHostRequest({ ...request({}), connection: { port: 1234, model: 'plamo' } }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({ ...request({}), connection: { port: 65536, model: 'plamo' } }),
+    ).toBe(false);
+    expect(
+      isEngineHostRequest({ ...request({}), connection: { port: 1234, model: 'x'.repeat(513) } }),
+    ).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'english' }))).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'pt' }))).toBe(true);
     expect(isEngineHostRequest(request({ eager: true }))).toBe(true);

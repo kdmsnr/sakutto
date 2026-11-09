@@ -1,11 +1,9 @@
 <script lang="ts">
   import { t } from '@/shared/i18n';
   import {
-    CHROME_ONLY_LANGUAGES,
     SUPPORTED_LANGUAGES,
     displayLanguage,
-    isChromeOnlyLanguage,
-    isTargetLanguage,
+    isLanguageCode,
     type TargetLanguage,
   } from '@/shared/languages';
 
@@ -17,11 +15,11 @@
 
   let { value, uiLanguage, onChange }: Props = $props();
 
-  const languages = [...SUPPORTED_LANGUAGES, ...CHROME_ONLY_LANGUAGES];
+  const languages = SUPPORTED_LANGUAGES;
 
   function update(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
-    if (!isTargetLanguage(select.value)) return;
+    if (!isLanguageCode(select.value)) return;
     onChange(select.value);
   }
 </script>
@@ -31,9 +29,7 @@
   <select {value} onchange={update}>
     {#each languages as language (language)}
       <option value={language}>
-        {displayLanguage(language, uiLanguage)}{isChromeOnlyLanguage(language)
-          ? t('chromeOnlySuffix')
-          : ''}
+        {displayLanguage(language, uiLanguage)}
       </option>
     {/each}
   </select>

@@ -15,7 +15,6 @@ import {
   subscribeSiteRules,
   type SiteRule,
 } from '@/dom/sites';
-import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
@@ -34,6 +33,7 @@ import {
   isModelProgressMessage,
   isPageCommandRequest,
   isPageInfoRequest,
+  isPageFormRequest,
   isPageStateRequest,
   isShortcutSnapshot,
   requestEngineStatus,
@@ -176,19 +176,11 @@ function composeLabels(readiness?: TypedReadiness): ComposeLabels {
 }
 
 function composeReadiness(
-  settings: Settings,
   model: Pick<ModelStatus, 'state'> | null,
   ready: boolean,
   statusKnown: boolean,
 ) {
   if (__SAKUTTO_FAKE_ENGINE__) return 'ready' as const;
-  if (!hasLicenseConsent(settings)) {
-    return typedReadiness({
-      consent: false,
-      modelState: model?.state ?? 'absent',
-      plamoReady: ready,
-    });
-  }
   // A failed status fetch is not "no model"; keep showing loading until we know.
   if (!statusKnown) return 'model-busy' as const;
   return typedReadiness({
@@ -205,6 +197,7 @@ function overlayLabels(): OverlayLabels {
     machine: t('machineTranslationTooltip'),
     selectionPending: t('selectionPending'),
     selectionFailed: t('selectionFailed'),
+    connectionFailed: t('lmPageConnectionFailed'),
     selectionTitle: t('selectionTitle'),
     selectionIcon: t('selectionIcon'),
     close: t('close'),
@@ -286,7 +279,6 @@ export default defineContentScript({
           listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-selection')(event),
       });
       const readiness = composeReadiness(
-        settings,
         modelState ? { state: modelState } : null,
         plamoReady,
         modelStatusKnown,
@@ -346,11 +338,18 @@ export default defineContentScript({
 
       const applyStored = async (): Promise<void> => {
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+        if (!__SAKUTTO_FAKE_ENGINE__) {
+          const status = await requestEngineStatus().catch(() => null);
+          if (status) {
+            modelState = status.model.state;
+            plamoReady = status.plamoReady;
+            modelStatusKnown = true;
+          }
+        }
         shortcutsEnabled = nextSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(nextSettings, nextRule, host));
         const readiness = composeReadiness(
-          nextSettings,
           modelState ? { state: modelState } : null,
           plamoReady,
           modelStatusKnown,
@@ -418,7 +417,7 @@ export default defineContentScript({
         if (message.status.state === 'loaded') plamoReady = true;
         void sessionPromise.then(async (session) => {
           const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
-          const readiness = composeReadiness(nextSettings, message.status, plamoReady, true);
+          const readiness = composeReadiness(message.status, plamoReady, true);
           compose?.setLabels(composeLabels(readiness));
           compose?.setPreferences(
             composePreferencesFor(
@@ -434,10 +433,20 @@ export default defineContentScript({
         });
         return;
       }
-      if (!isPageCommandRequest(message) && !isPageStateRequest(message)) return;
+      if (
+        !isPageCommandRequest(message) &&
+        !isPageStateRequest(message) &&
+        !isPageFormRequest(message)
+      )
+        return;
 
       void sessionPromise.then(async (session) => {
         if (isPageStateRequest(message)) {
+          sendResponse(session.state());
+          return;
+        }
+        if (isPageFormRequest(message)) {
+          session.setPageForm(message.form);
           sendResponse(session.state());
           return;
         }

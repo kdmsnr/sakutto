@@ -137,10 +137,10 @@ describe('locale messages', () => {
   const ja = readMessages('ja');
 
   it('uses the product names from the specification', () => {
-    expect(en.extensionName?.message).toBe('Sakutto - Local AI translation');
-    expect(ja.extensionName?.message).toBe('Sakutto - ローカルAI翻訳');
-    expect(en.extensionShortName?.message).toBe('Sakutto');
-    expect(ja.extensionShortName?.message).toBe('Sakutto');
+    expect(en.extensionName?.message).toBe('lmsakutto');
+    expect(ja.extensionName?.message).toBe('lmsakutto');
+    expect(en.extensionShortName?.message).toBe('lmsakutto');
+    expect(ja.extensionShortName?.message).toBe('lmsakutto');
   });
 
   /**
@@ -150,9 +150,9 @@ describe('locale messages', () => {
    */
   it.each(catalogs)('%s keeps a store-length name that starts with the brand', (locale) => {
     const messages = readMessages(locale);
-    expect(messages.extensionName?.message.startsWith('Sakutto'), locale).toBe(true);
+    expect(messages.extensionName?.message.startsWith('lmsakutto'), locale).toBe(true);
     expect(messages.extensionName?.message.length, locale).toBeLessThanOrEqual(75);
-    expect(messages.extensionShortName?.message, locale).toBe('Sakutto');
+    expect(messages.extensionShortName?.message, locale).toBe('lmsakutto');
   });
 
   it('keeps the store name and description inside the manifest limits', () => {
@@ -354,23 +354,15 @@ describe('locale messages', () => {
     expect(bundled).toContain(PLAMO_OFFICIAL_LINKS.licenseEn);
   });
 
-  /**
-   * The privacy policy and the source repository are the extension's own pages, so both
-   * screens that already link outward point at the same two URLs.
-   */
-  it('links the privacy policy and the source from both pages', () => {
-    for (const file of [
-      '../src/entrypoints/onboarding/App.svelte',
-      '../src/entrypoints/options/App.svelte',
-    ]) {
-      const source = readFileSync(new URL(file, import.meta.url), 'utf8');
-      expect(source, file).toContain('PROJECT_LINKS');
-      expect(source, file).toContain('projectLinks.privacy');
-      expect(source, file).toContain('projectLinks.source');
-    }
-    expect(en.privacyPolicyLink?.message).toBeTruthy();
-    expect(ja.sourceCodeLink?.message).toBeTruthy();
-    expect(PROJECT_LINKS.privacy).toMatch(/^https:\/\//);
+  it('describes localhost privacy and avoids the upstream privacy policy', () => {
+    const options = readFileSync(
+      new URL('../src/entrypoints/options/App.svelte', import.meta.url),
+      'utf8',
+    );
+    expect(options).toContain('projectLinks.source');
+    expect(options).not.toContain('projectLinks.privacy');
+    expect(en.privacyBody?.message).toContain('LM Studio');
+    expect(ja.privacyBody?.message).toContain('LM Studio');
     expect(PROJECT_LINKS.source).toMatch(/^https:\/\/github\.com\//);
   });
 

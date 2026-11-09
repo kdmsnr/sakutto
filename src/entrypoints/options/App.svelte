@@ -1,31 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { shouldHintBuiltInFallback } from '@/engine/model/suggestion';
   import type { GlossaryEntry } from '@/engine/types';
   import type { SiteAuto, SiteRule } from '@/dom/sites';
   import { loadSiteRules, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
-  import type { EngineCapabilities } from '@/shared/capabilities';
-  import type { EngineStatus } from '@/shared/engine-status';
   import { currentUiLanguage, t } from '@/shared/i18n';
-  import {
-    requestCacheClear,
-    requestEngineCapabilities,
-    requestEngineStatus,
-    requestEngineTier,
-    requestQualitySample,
-  } from '@/shared/messages';
-  import type { QualitySample } from '@/shared/quality';
+  import { requestCacheClear } from '@/shared/messages';
+  import { lmStudioErrorLabel, requestLMStudioModels } from '@/shared/lmstudio-status';
   import { PLAMO_OFFICIAL_LINKS, PROJECT_LINKS } from '@/shared/plamo-license';
-  import type { IdleMinutes, Settings, SettingsPatch, TierPreference } from '@/shared/settings';
-  import { isIdleMinutes, isTierPreference } from '@/shared/settings';
+  import type { Settings, SettingsPatch } from '@/shared/settings';
   import type { TargetLanguage } from '@/shared/languages';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
-  import EngineStatusView from '@/ui/EngineStatus.svelte';
   import LanguageField from '@/ui/LanguageField.svelte';
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
-  import ModelManager from '@/ui/ModelManager.svelte';
-  import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
   import ShortcutSettings from '@/ui/ShortcutSettings.svelte';
 
@@ -50,10 +37,10 @@
   let hostError = $state(false);
   let glossaryScope = $state('global');
   let permissionError = $state(false);
-  let engine = $state<EngineStatus | null>(null);
-  let capabilities = $state<EngineCapabilities | null>(null);
-  let capabilitiesFailed = $state(false);
-  let quality = $state<QualitySample | null>(null);
+  let models = $state<string[]>([]);
+  let connection = $state<'checking' | 'connected' | 'error'>('checking');
+  let connectionError = $state<string | undefined>();
+  let portInvalid = $state(false);
   let cacheState = $state<CacheState>(null);
   let actionFailed = $state(false);
 
@@ -65,18 +52,6 @@
       ? (settings?.glossary ?? [])
       : (rules[glossaryScope]?.glossary ?? []),
   );
-  let showSlow = $derived(
-    shouldHintBuiltInFallback(engine?.tier ?? null, quality?.milliseconds ?? null),
-  );
-  let engineLine = $derived.by(() => {
-    const label = runtimeLabel({
-      status: engine,
-      pageSimple: false,
-      targetLanguage: settings?.targetLanguage ?? 'en',
-    });
-    return t(label.key, label.substitutions);
-  });
-
   async function updateSettings(patch: SettingsPatch) {
     try {
       settings = await saveSettings(patch);
@@ -145,34 +120,25 @@
     await loadRules();
   }
 
-  async function changeTier(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement;
-    if (!isTierPreference(select.value)) return;
-    const tier: TierPreference = select.value;
-    await updateSettings({ tier });
-    await requestEngineTier(tier);
-    engine = await requestEngineStatus();
+  async function checkConnection() {
+    connection = 'checking';
+    const result = await requestLMStudioModels();
+    models = result.models;
+    connectionError = result.error;
+    connection = result.error ? 'error' : 'connected';
   }
 
-  async function changeIdle(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement;
-    const minutes = Number(select.value);
-    if (!isIdleMinutes(minutes)) return;
-    const idleMinutes: IdleMinutes = minutes;
-    await updateSettings({ idleMinutes });
+  async function changePort(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const port = Number(input.value);
+    portInvalid = !Number.isInteger(port) || port < 1 || port > 65535;
+    if (portInvalid) return;
+    await updateSettings({ lmStudioPort: port });
+    await checkConnection();
   }
 
   async function clearCache() {
     cacheState = (await requestCacheClear()) ? 'cleared' : 'failed';
-  }
-
-  async function openOnboarding() {
-    actionFailed = false;
-    try {
-      await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
-    } catch {
-      actionFailed = true;
-    }
   }
 
   async function openTyped() {
@@ -194,16 +160,7 @@
     });
     void loadStoredSettings();
     void loadRules();
-    void requestEngineStatus().then((status) => {
-      engine = status;
-    });
-    void requestEngineCapabilities().then((value) => {
-      capabilities = value;
-      capabilitiesFailed = value === null;
-    });
-    void requestQualitySample().then((sample) => {
-      quality = sample;
-    });
+    void checkConnection();
     return () => {
       unsubscribe();
       unsubscribeRules();
@@ -343,66 +300,68 @@
   </section>
 
   <section class="panel">
-    <h2>{t('modelHeading')}</h2>
-    <ModelManager />
-    {#if showSlow}
-      <p class="muted help">{t('slowDeviceHint')}</p>
-    {/if}
-    <button class="button secondary" type="button" onclick={clearCache}>{t('cacheClear')}</button>
-    {#if cacheState === 'cleared'}
-      <p class="muted" role="status">{t('cacheCleared')}</p>
-    {:else if cacheState === 'failed'}
-      <p class="error" role="alert">{t('cacheClearFailed')}</p>
-    {/if}
-  </section>
-
-  <section class="panel">
-    <h2>{t('engineHeading')}</h2>
+    <h2>{t('lmHeading')}</h2>
     {#if settings}
       <label class="field">
-        <span>{t('tierLabel')}</span>
-        <select value={settings.tier} onchange={changeTier}>
-          <option value="auto">{t('tierAuto')}</option>
-          <option value="g">{t('tierGpu')}</option>
-          <option value="c8">{t('tierCpu8')}</option>
-          <option value="c4">{t('tierCpu4')}</option>
+        <span>{t('lmPort')}</span>
+        <input
+          type="number"
+          min="1"
+          max="65535"
+          value={settings.lmStudioPort}
+          onchange={changePort}
+        />
+      </label>
+      {#if portInvalid}<p class="error" role="alert">{t('lmPortInvalid')}</p>{/if}
+      <label class="field">
+        <span>{t('lmModel')}</span>
+        <select
+          value={settings.lmStudioModel}
+          onchange={(event) => void updateSettings({ lmStudioModel: event.currentTarget.value })}
+        >
+          <option value="">{t('lmChoose')}</option>
+          {#if settings.lmStudioModel && !models.includes(settings.lmStudioModel)}
+            <option value={settings.lmStudioModel}>{settings.lmStudioModel}</option>
+          {/if}
+          {#each models as model (model)}<option value={model}>{model}</option>{/each}
         </select>
       </label>
-      <p class="muted help">{t('tierHelp')}</p>
       <label class="field">
-        <span>{t('idleLabel')}</span>
-        <select value={String(settings.idleMinutes)} onchange={changeIdle}>
-          <option value="1">{t('idle1')}</option>
-          <option value="5">{t('idle5')}</option>
-          <option value="15">{t('idle15')}</option>
-          <option value="0">{t('idleNever')}</option>
-        </select>
+        <span
+          ><input
+            type="checkbox"
+            checked={settings.useContext}
+            onchange={(event) => void updateSettings({ useContext: event.currentTarget.checked })}
+          />
+          {t('lmContext')}</span
+        >
       </label>
     {/if}
-    <p class="engine-line">{engineLine}</p>
-    <h3>{t('diagHeading')}</h3>
-    <dl class="diag">
-      <div>
-        <dt>{t('diagBackend')}</dt>
-        <dd>
-          {engine?.backend === 'webgpu'
-            ? t('diagBackendGpu')
-            : engine?.backend === 'cpu-wasm'
-              ? t('diagBackendCpu')
-              : t('diagBackendUnknown')}
-        </dd>
-      </div>
-      <div>
-        <dt>{t('diagThreads')}</dt>
-        <dd>{engine?.threads ?? '—'}</dd>
-      </div>
-      <div>
-        <dt>{t('diagParallel')}</dt>
-        <dd>{engine?.parallel ?? '—'}</dd>
-      </div>
-    </dl>
-    <p class="muted help">{t('diagRateHint')}</p>
-    <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
+    <p class="muted help">{t('lmModelHint')}</p>
+    <p role="status" aria-live="polite">
+      {connection === 'checking'
+        ? t('lmChecking')
+        : connection === 'error'
+          ? t(lmStudioErrorLabel(connectionError))
+          : models.length === 0
+            ? t('lmNoModels')
+            : t('lmConnected')}
+    </p>
+    {#if connection === 'connected' && settings?.lmStudioModel && !models.includes(settings.lmStudioModel)}
+      <p class="error" role="alert">{t('lmModelMissing')}</p>
+    {/if}
+    <button
+      class="button secondary"
+      type="button"
+      onclick={checkConnection}
+      disabled={connection === 'checking'}>{t('lmRefresh')}</button
+    >
+    <button class="button secondary" type="button" onclick={clearCache}>{t('cacheClear')}</button>
+    {#if cacheState === 'cleared'}<p class="muted" role="status">
+        {t('cacheCleared')}
+      </p>{:else if cacheState === 'failed'}<p class="error" role="alert">
+        {t('cacheClearFailed')}
+      </p>{/if}
   </section>
 
   <section class="panel">
@@ -410,9 +369,6 @@
     <p>{t('privacyBody')}</p>
     <p class="muted">{t('privacyDestinations')}</p>
     <ul class="links">
-      <li>
-        <a href={projectLinks.privacy} target="_blank" rel="noreferrer">{t('privacyPolicyLink')}</a>
-      </li>
       <li>
         <a href={projectLinks.source} target="_blank" rel="noreferrer">{t('sourceCodeLink')}</a>
       </li>
@@ -476,7 +432,6 @@
   </section>
 
   <div class="actions">
-    <button class="button" type="button" onclick={openOnboarding}>{t('openOnboarding')}</button>
     <button class="button secondary" type="button" onclick={openTyped}>{t('openTyped')}</button>
   </div>
   {#if actionFailed}
@@ -527,13 +482,8 @@
     color: var(--muted);
   }
 
-  .help,
-  .engine-line {
+  .help {
     margin-bottom: var(--space-3);
-  }
-
-  .engine-line {
-    font-weight: 700;
   }
 
   h3 {
@@ -573,27 +523,6 @@
 
   .more .links {
     margin-top: var(--space-2);
-  }
-
-  .diag {
-    display: grid;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-  }
-
-  .diag div {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-3);
-  }
-
-  .diag dt {
-    color: var(--muted);
-  }
-
-  .diag dd {
-    margin: 0;
-    font-variant-numeric: tabular-nums;
   }
 
   .sites {

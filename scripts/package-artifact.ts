@@ -10,7 +10,7 @@ import {
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const MIN_STORE_ZIP_BYTES = 1_048_576;
+export const MIN_STORE_ZIP_BYTES = 1;
 
 export interface ZipEntry {
   name: string;
@@ -40,14 +40,7 @@ function publish(root: string): void {
 
   const unpacked = join(output, 'chrome-mv3');
   const manifest = join(unpacked, 'manifest.json');
-  const wasm = join(unpacked, 'vendor', 'wllama', 'wllama.wasm');
   if (!existsSync(manifest)) problems.push('the unpacked extension is missing manifest.json');
-  const wasmBytes = existsSync(wasm) ? statSync(wasm).size : 0;
-  if (wasmBytes < MIN_STORE_ZIP_BYTES) {
-    problems.push(
-      `wllama.wasm is ${String(wasmBytes)} bytes, below ${String(MIN_STORE_ZIP_BYTES)}`,
-    );
-  }
 
   if (problems.length > 0) {
     for (const problem of problems) console.error(problem);

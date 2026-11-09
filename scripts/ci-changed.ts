@@ -4,33 +4,26 @@ import { pathToFileURL } from 'node:url';
 const BUNDLE_FILES = new Set(['.github/workflows/ci.yml', 'scripts/package-artifact.ts']);
 
 export interface ChangeScope {
-  wllama: boolean;
   code: boolean;
   bundle: boolean;
 }
 
 function isBundleInput(file: string): boolean {
-  return (
-    file.startsWith('scripts/wllama/') ||
-    file.startsWith('.github/actions/package-extension/') ||
-    BUNDLE_FILES.has(file)
-  );
+  return file.startsWith('.github/actions/package-extension/') || BUNDLE_FILES.has(file);
 }
 
 export function classifyChanges(files: readonly string[]): ChangeScope {
-  let wllama = false;
   let code = false;
   let bundle = false;
 
   for (const file of files) {
-    if (file.startsWith('scripts/wllama/')) wllama = true;
     if (isBundleInput(file)) bundle = true;
     if (file.startsWith('docs/') || file.endsWith('.md')) continue;
     code = true;
   }
 
-  if (wllama || bundle) code = true;
-  return { wllama, code, bundle };
+  if (bundle) code = true;
+  return { code, bundle };
 }
 
 function filesFrom(args: readonly string[]): string[] {
@@ -51,5 +44,5 @@ function isDirectRun(): boolean {
 
 if (isDirectRun()) {
   const scope = classifyChanges(filesFrom(process.argv.slice(2)));
-  process.stdout.write(`wllama=${scope.wllama}\ncode=${scope.code}\nbundle=${scope.bundle}\n`);
+  process.stdout.write(`code=${scope.code}\nbundle=${scope.bundle}\n`);
 }

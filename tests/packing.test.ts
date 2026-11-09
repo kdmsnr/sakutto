@@ -9,6 +9,7 @@ const labels = {
   machine: 'PLaMo による機械翻訳です。',
   selectionPending: '翻訳しています…',
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
+  connectionFailed: 'LM Studio に接続できません。',
   selectionTitle: '選択したテキスト',
   selectionIcon: '選択したテキストを翻訳します',
   close: '閉じる',

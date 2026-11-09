@@ -17,7 +17,6 @@ export const REQUIRED_PERMISSIONS = [
   'offscreen',
   'scripting',
   'storage',
-  'unlimitedStorage',
 ] as const;
 
 export const REQUIRED_HOST_PATTERNS = ['http://*/*', 'https://*/*'] as const;
@@ -30,7 +29,6 @@ export const REQUIRED_ENTRIES = [
   'onboarding.html',
   'sample.html',
   'typed.html',
-  'gpu-probe.js',
   'grant.html',
   'offscreen.html',
   'content-scripts/content.js',
@@ -42,20 +40,7 @@ export const REQUIRED_ENTRIES = [
   'licenses/NOTICE.txt',
   'licenses/PLaMo-Community-License-en.txt',
   'licenses/PLaMo-Community-License-ja.txt',
-  'licenses/llama.cpp-LICENSE.txt',
-  'licenses/wllama-LICENSE.txt',
-  'licenses/emscripten-LICENSE.txt',
-  'licenses/dawn-LICENSE.txt',
   'licenses/svelte-LICENSE.txt',
-  'vendor/wllama/wllama.js',
-  'vendor/wllama/wllama.wasm',
-  'vendor/wllama/wllama-worker.js',
-  'vendor/wllama/wllama-module.js',
-  'vendor/wllama/wllama-pthread.js',
-  'vendor/wllama/wllama-compat.wasm',
-  'vendor/wllama/wllama-compat-module.js',
-  'vendor/wllama/wllama-compat-pthread.js',
-  'vendor/wllama/wllama-build.json',
 ] as const;
 
 /**
@@ -72,6 +57,7 @@ const LOCALE_ENTRY = /^_locales\/([^/]+)\/messages\.json$/;
 
 const FORBIDDEN = [
   /\.gguf$/i,
+  /(^|\/)vendor\/wllama\//,
   /\.map$/i,
   /(^|\/)\.env($|\.)/,
   /(^|\/)node_modules\//,
@@ -123,8 +109,8 @@ export function auditPackage(entries: readonly string[], manifest: PackagedManif
   if (!sameMembers(permissions, REQUIRED_PERMISSIONS)) {
     problems.push(`permissions ${permissions.join(',')}`);
   }
-  if ((manifest.host_permissions ?? []).length > 0) {
-    problems.push('host_permissions must stay empty');
+  if (!sameMembers(manifest.host_permissions ?? [], ['http://127.0.0.1/*'])) {
+    problems.push('host_permissions must contain only http://127.0.0.1/*');
   }
   const optionalHosts = manifest.optional_host_permissions ?? [];
   if (!sameMembers(optionalHosts, REQUIRED_HOST_PATTERNS)) {

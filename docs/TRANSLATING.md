@@ -3,8 +3,6 @@
 Sakutto ships its UI strings as Chrome extension locales in `public/_locales/<lang>/messages.json`.
 Adding a language is a copy-only change: no TypeScript, no build flag, and no new dependency.
 
-日本語: [TRANSLATING.ja.md](TRANSLATING.ja.md)
-
 ## What is already translated
 
 | Catalog | Language             | Source |

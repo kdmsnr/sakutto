@@ -1,4 +1,5 @@
 import { estimateTokens } from '@/engine/text/tokens';
+import { isEngineError } from '@/engine/errors';
 import {
   coveredBlocks,
   formatRate,
@@ -111,6 +112,7 @@ export interface PageViewState {
   host: string;
   auto: SiteAuto;
   targetLanguage: string;
+  formOverride: Formality | null;
   pageLanguage: string | null;
   targetAdjusted: boolean;
   sameLanguage: boolean;
@@ -197,7 +199,7 @@ export function preferencesFor(
     display: rule.display ?? settings.display,
     auto: rule.auto,
     host,
-    context: false,
+    context: settings.useContext,
     tier: null,
     pace: settings.pace,
     ...(glossary.length > 0 ? { glossary } : {}),
@@ -228,9 +230,13 @@ export class PageSession {
   private readonly liveByBlock = new Map<Element, Live>();
   private readonly idleWaiters: Array<() => void> = [];
   private prefs: SessionPreferences;
+  private defaultForm: Formality;
+  private formOverride: Formality | null = null;
+  private lastLocation: string;
   private labels: OverlayLabels;
   private detectedLanguage: string | null = null;
   private active = false;
+  private connectionFailed = false;
   private paused = false;
   private pendingScans = 0;
   private scanChain: Promise<void> = Promise.resolve();
@@ -281,6 +287,8 @@ export class PageSession {
   private readonly onScroll: () => void;
   private readonly onPageHide: () => void;
   private readonly onPopState: () => void;
+  private readonly onNavigationChange: () => void;
+  private readonly navigation: EventTarget | null;
   private readonly onPointerOver: (event: Event) => void;
   private readonly onPointerOut: (event: Event) => void;
   private readonly onPointerDown: (event: Event) => void;
@@ -298,6 +306,8 @@ export class PageSession {
     this.engine = options.engine;
     this.labels = options.labels;
     this.prefs = options.preferences;
+    this.defaultForm = options.preferences.form;
+    this.lastLocation = doc.defaultView?.location.href ?? '';
     this.debounceMs = options.debounceMs ?? 120;
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
@@ -349,11 +359,22 @@ export class PageSession {
       this.stopForNavigation();
     };
     this.onPopState = () => {
+      const current = this.doc.defaultView?.location.href ?? '';
+      if (locationChanged(this.lastLocation, current)) this.setPageForm(null);
+      this.lastLocation = current;
       if (!this.active) return;
       this.invalidatePaints();
       this.abortRunning(true);
       this.scheduleScan();
     };
+    // History methods are isolated between the page and an extension content script.
+    // Navigation events are dispatched by the browser across both worlds instead.
+    this.onNavigationChange = () => {
+      const current = this.doc.defaultView?.location.href ?? '';
+      if (locationChanged(this.lastLocation, current)) this.onPopState();
+    };
+    this.navigation =
+      (this.doc.defaultView as (Window & { navigation?: EventTarget }) | null)?.navigation ?? null;
     this.onPointerOver = (event) => this.showHover(event);
     this.onPointerOut = (event) => this.hideHover(event);
     this.onPointerDown = (event) => {
@@ -421,6 +442,7 @@ export class PageSession {
     this.doc.defaultView?.addEventListener('scroll', this.onScroll, { passive: true });
     this.doc.defaultView?.addEventListener('pagehide', this.onPageHide);
     this.doc.defaultView?.addEventListener('popstate', this.onPopState);
+    this.navigation?.addEventListener('currententrychange', this.onNavigationChange);
     this.doc.defaultView?.addEventListener('resize', this.onResize);
     this.bindHistory();
     this.bindObservers();
@@ -438,8 +460,9 @@ export class PageSession {
 
   setPreferences(next: SessionPreferences): void {
     const previous = this.prefs;
+    this.defaultForm = next.form;
     const tier = next.tier ?? previous.tier;
-    this.prefs = { ...next, tier };
+    this.prefs = { ...next, tier, form: this.formOverride ?? this.defaultForm };
     if (
       lookaheadScreens(previous.tier, previous.pace) !== lookaheadScreens(tier, this.prefs.pace)
     ) {
@@ -447,20 +470,38 @@ export class PageSession {
     }
     if (next.display !== previous.display) this.repaintAll();
     if (next.auto !== previous.auto && this.active) this.publishState();
+    const formChanged = this.prefs.form !== previous.form;
+    const selection =
+      formChanged && this.selection
+        ? {
+            source: this.selection.source,
+            rect: this.selection.rect ?? undefined,
+            reveal: this.selectionShown,
+          }
+        : null;
+    if (selection) this.dismissSelection();
     const languageChanged =
-      next.targetLanguage !== previous.targetLanguage ||
-      next.form !== previous.form ||
-      glossaryKey(next.glossary) !== glossaryKey(previous.glossary);
+      this.prefs.targetLanguage !== previous.targetLanguage ||
+      formChanged ||
+      this.prefs.context !== previous.context ||
+      glossaryKey(this.prefs.glossary) !== glossaryKey(previous.glossary);
     if (languageChanged && this.active) {
       this.retranslate();
       void this.requestScan().then(() => {
         if (this.active) this.pump();
       });
     }
+    if (selection) this.translateSelection(selection.source, selection.rect, selection.reveal);
   }
 
   setTier(tier: 'g' | 'c8' | 'c4' | null): void {
-    this.setPreferences({ ...this.prefs, tier });
+    this.setPreferences({ ...this.prefs, form: this.defaultForm, tier });
+  }
+
+  setPageForm(form: Formality | null): void {
+    this.formOverride = form;
+    this.setPreferences({ ...this.prefs, form: this.defaultForm });
+    this.publishState();
   }
 
   state(): PageViewState {
@@ -486,6 +527,7 @@ export class PageSession {
       host: this.prefs.host,
       auto: this.prefs.auto,
       targetLanguage: this.prefs.targetLanguage,
+      formOverride: this.formOverride,
       pageLanguage,
       targetAdjusted: this.targetAdjusted,
       sameLanguage:
@@ -528,6 +570,7 @@ export class PageSession {
 
   async translate(): Promise<void> {
     if (this.active) return;
+    this.connectionFailed = false;
     this.active = true;
     this.navigating = false;
     this.sweepLegacyNotes();
@@ -809,6 +852,7 @@ export class PageSession {
     this.unbindKeys();
     this.doc.defaultView?.removeEventListener('pagehide', this.onPageHide);
     this.doc.defaultView?.removeEventListener('popstate', this.onPopState);
+    this.navigation?.removeEventListener('currententrychange', this.onNavigationChange);
     this.doc.defaultView?.removeEventListener('resize', this.onResize);
     this.overlay.destroy();
   }
@@ -1200,6 +1244,10 @@ export class PageSession {
         this.optionsFor(batch, priority, signal),
       )) {
         if (signal.aborted) return;
+        if (this.connectionFailed) {
+          this.connectionFailed = false;
+          this.publishState();
+        }
         entry.streaming = true;
         const item = owners.get(chunk.id);
         if (!item || item.batchToken !== token) continue;
@@ -1218,7 +1266,12 @@ export class PageSession {
           else this.queuePaint(item);
         }
       }
-    } catch {
+    } catch (error) {
+      if (isEngineError(error) && error.code === 'server-unreachable') {
+        this.connectionFailed = true;
+        this.overlay.showStatus(this.labels.connectionFailed);
+        this.publishState();
+      }
       // Unfinished blocks are retried below. Abort keeps the previous text.
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
@@ -1302,7 +1355,7 @@ export class PageSession {
     if (!this.selectionShown || item.translation.trim().length > 0) return;
     this.overlay.showSelection(
       item.rect,
-      this.labels.selectionFailed,
+      this.connectionFailed ? this.labels.connectionFailed : this.labels.selectionFailed,
       null,
       false,
       this.prefs.targetLanguage,
@@ -1703,6 +1756,7 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
+    if (this.connectionFailed) return this.labels.connectionFailed;
     const base =
       view.pending > 0
         ? this.labels.barProgress(view.done, view.total)
@@ -2032,21 +2086,23 @@ export class PageSession {
     if (!view || !history) return;
     const pushState = history.pushState;
     const replaceState = history.replaceState;
-    const notify = (before: string, url: string | URL | null | undefined): void => {
-      if (!this.active || !locationChanged(before, url)) return;
+    const notify = (): void => {
+      const changed = locationChanged(this.lastLocation, view.location.href);
+      this.lastLocation = view.location.href;
+      if (!changed) return;
+      this.setPageForm(null);
+      if (!this.active) return;
       this.invalidatePaints();
       this.abortRunning(true);
       this.scheduleScan();
     };
     history.pushState = function (this: History, ...args: Parameters<History['pushState']>) {
-      const before = view.location.href;
       pushState.apply(this, args);
-      notify(before, args[2]);
+      notify();
     };
     history.replaceState = function (this: History, ...args: Parameters<History['replaceState']>) {
-      const before = view.location.href;
       replaceState.apply(this, args);
-      notify(before, args[2]);
+      notify();
     };
     this.historyUnpatch = () => {
       history.pushState = pushState;
@@ -2182,7 +2238,13 @@ function locationChanged(before: string, url: string | URL | null | undefined): 
   try {
     const next = new URL(String(url), before);
     const previous = new URL(before);
-    return next.origin !== previous.origin || next.pathname !== previous.pathname;
+    const hashRoute = (hash: string): boolean => hash.startsWith('#/') || hash.startsWith('#!/');
+    return (
+      next.origin !== previous.origin ||
+      next.pathname !== previous.pathname ||
+      next.search !== previous.search ||
+      (next.hash !== previous.hash && (hashRoute(next.hash) || hashRoute(previous.hash)))
+    );
   } catch {
     return false;
   }

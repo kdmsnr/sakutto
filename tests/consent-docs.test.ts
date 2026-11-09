@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 const privacy = readFileSync(new URL('../PRIVACY.md', import.meta.url), 'utf8');
 const reviewNotes = readFileSync(new URL('../docs/CWS_REVIEW_NOTES.md', import.meta.url), 'utf8');
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-const readmeJa = readFileSync(new URL('../README.ja.md', import.meta.url), 'utf8');
 
 const ENGLISH_HEADING = '# Privacy policy';
 const JAPANESE_HEADING = '# プライバシーポリシー';
@@ -29,7 +28,6 @@ describe('consent documentation', () => {
     for (const [name, text] of [
       ['PRIVACY.md', privacy],
       ['README.md', readme],
-      ['README.ja.md', readmeJa],
     ] as const) {
       expect(text, name).not.toMatch(/guardian:\s*true/);
       expect(text, name).not.toMatch(/verifies (?:the user's )?age/i);

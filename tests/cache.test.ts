@@ -52,9 +52,9 @@ describe('translation cache keys', () => {
     });
     const segments = key.split('|');
 
-    expect(segments).toHaveLength(7);
+    expect(segments).toHaveLength(8);
     expect(segments.at(-1)).toMatch(/^[0-9a-f]{64}$/);
-    expect(segments.slice(0, 3)).toEqual(['v1', 'model', 'auto']);
+    expect(segments.slice(0, 3)).toEqual(['v3', 'model', 'auto']);
   });
 
   it('fingerprints the glossary independently of the cache key', () => {
@@ -82,6 +82,27 @@ describe('translation cache keys', () => {
     );
     expect(glossaryVersion(large)).toBe(glossaryVersion(large));
     expect(glossaryVersion(large)).not.toBe(glossaryVersion(tweaked));
+  });
+
+  it('distinguishes duplicate and special-token terms that can affect the API request', () => {
+    const base = { model: 'model', tgt: 'ja', form: 'plain' as const, text: 'Hello' };
+    expect(
+      buildTranslationCacheKey({
+        ...base,
+        glossary: [
+          { source: 'Hello', target: '一' },
+          { source: 'Hello', target: '二' },
+        ],
+      }),
+    ).not.toBe(
+      buildTranslationCacheKey({ ...base, glossary: [{ source: 'Hello', target: '二' }] }),
+    );
+    expect(
+      buildTranslationCacheKey({
+        ...base,
+        glossary: [{ source: 'Hello', target: '<|plamo:tag|>' }],
+      }),
+    ).not.toBe(buildTranslationCacheKey(base));
   });
 });
 

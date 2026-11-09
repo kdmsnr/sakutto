@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,6 +6,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = join(root, 'public', 'licenses');
 
 await mkdir(outputDirectory, { recursive: true });
+// Remove artifacts from older builds so they are not shipped by WXT.
+for (const name of [
+  'llama.cpp-LICENSE.txt',
+  'wllama-LICENSE.txt',
+  'emscripten-LICENSE.txt',
+  'dawn-LICENSE.txt',
+]) {
+  await rm(join(outputDirectory, name), { force: true });
+}
 
 /**
  * Files copied from `licenses/` into the packaged extension, minus `LICENSE` and `NOTICE`.
@@ -13,10 +22,6 @@ await mkdir(outputDirectory, { recursive: true });
  * import; this script stays plain JavaScript so a build never needs a type-stripping step.
  */
 const LICENSE_FILE_COPIES = [
-  'llama.cpp-LICENSE.txt',
-  'wllama-LICENSE.txt',
-  'emscripten-LICENSE.txt',
-  'dawn-LICENSE.txt',
   'PLaMo-Community-License-en.txt',
   'PLaMo-Community-License-ja.txt',
   'svelte-LICENSE.txt',

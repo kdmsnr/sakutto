@@ -1,5 +1,7 @@
 # Chrome Web Store review notes
 
+> Historical documentation for the upstream in-browser runtime. It has not been updated for this LM Studio fork and must not be used for publication. See [BUILDING.md](BUILDING.md) for current build instructions.
+
 Reviewer-facing facts for the current tree. The source of truth for model pins is `src/engine/model/catalog.ts`. The release permission list is `wxt.config.ts`. Package checks are `scripts/verify-package.ts`. Onboarding copy is `public/_locales/en/messages.json` and `public/_locales/ja/messages.json`. Consent storage is `src/shared/settings.ts` and `src/entrypoints/onboarding/App.svelte`.
 
 Repository: https://github.com/jammaru/sakutto

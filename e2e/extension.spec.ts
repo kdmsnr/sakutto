@@ -21,43 +21,11 @@ test.describe('built extension', () => {
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('Sakutto - Local AI translation');
+        await expect(page.locator('h1')).toHaveText('lmsakutto');
         if (path === 'onboarding.html') {
-          await expect(page.getByRole('checkbox')).toHaveCount(0);
-          await expect(
-            page.getByRole('button', { name: 'Agree to the license and start' }),
-          ).toBeEnabled();
-          await expect(page.locator('#start-notice')).toHaveText(
-            'Pressing "Agree to the license and start" means you agree to the PLaMo Community License.',
-          );
-          // The clearer structure: three short parts, then the age line, then the links.
-          await expect(page.getByRole('heading', { name: 'PLaMo terms of use' })).toBeVisible();
-          await expect(
-            page.getByRole('heading', { name: 'Personal and academic use' }),
-          ).toBeVisible();
-          await expect(
-            page.getByRole('heading', { name: 'Work and commercial use' }),
-          ).toBeVisible();
-          await expect(
-            page.getByRole('heading', { name: 'When the conditions are not met' }),
-          ).toBeVisible();
-          await expect(page.getByText('Other license information')).toBeAttached();
-          const details = page.locator('details');
-          await details.locator('summary').click();
-          await expect(details.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
-            'href',
-            'https://jammaru.com/sakutto/privacy/',
-          );
-          await expect(details.getByRole('link', { name: 'Source code' })).toHaveAttribute(
-            'href',
-            'https://github.com/jammaru/sakutto',
-          );
+          await expect(page).toHaveURL(/\/options\.html$/u);
         }
         if (path === 'options.html') {
-          await expect(page.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
-            'href',
-            'https://jammaru.com/sakutto/privacy/',
-          );
           await expect(page.getByRole('link', { name: 'Source code' })).toHaveAttribute(
             'href',
             'https://github.com/jammaru/sakutto',
@@ -65,7 +33,7 @@ test.describe('built extension', () => {
           // Chrome owns the bindings, so the panel shows them and links to Chrome's editor.
           await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
           await expect(page.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
-          await expect(page.locator('kbd').first()).toHaveText('Alt+A');
+          await expect(page.locator('kbd').first()).toHaveText(/^(Alt|Option)\+A$/u);
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();
@@ -93,47 +61,26 @@ test.describe('built extension', () => {
   test('renders the pages in Japanese for a Japanese browser', async () => {
     const extension = await loadExtension('ja');
     try {
+      const uiLanguage = await extension.worker.evaluate(() => {
+        const { chrome } = globalThis as unknown as {
+          chrome: { i18n: { getUILanguage(): string } };
+        };
+        return chrome.i18n.getUILanguage();
+      });
+      test.skip(
+        !uiLanguage.toLowerCase().startsWith('ja'),
+        `Chromium UI language is ${uiLanguage}; Japanese is unavailable in this environment.`,
+      );
       const pages = ['popup.html', 'options.html', 'onboarding.html', 'typed.html'];
 
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('Sakutto - ローカルAI翻訳');
+        await expect(page.locator('h1')).toHaveText('lmsakutto');
         if (path === 'onboarding.html') {
-          await expect(page.getByRole('checkbox')).toHaveCount(0);
-          await expect(
-            page.getByRole('button', { name: 'ライセンスに同意して開始' }),
-          ).toBeEnabled();
-          await expect(page.locator('#start-notice')).toHaveText(
-            '「ライセンスに同意して開始」を押すと、PLaMo Community Licenseに同意したことになります。',
-          );
-          await expect(page.getByRole('heading', { name: 'PLaMoの利用条件' })).toBeVisible();
-          await expect(page.getByRole('heading', { name: '個人・学術目的での利用' })).toBeVisible();
-          await expect(page.getByRole('heading', { name: '仕事・商業目的での利用' })).toBeVisible();
-          await expect(page.getByRole('heading', { name: '条件を満たさない場合' })).toBeVisible();
-          await expect(page.getByText('その他のライセンス情報')).toBeAttached();
-          const details = page.locator('details');
-          await details.locator('summary').click();
-          await expect(details.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute(
-            'href',
-            'https://jammaru.com/sakutto/privacy/',
-          );
-          await expect(details.getByRole('link', { name: 'ソースコード' })).toHaveAttribute(
-            'href',
-            'https://github.com/jammaru/sakutto',
-          );
-          // The age line states the requirement and does not disclaim verification.
-          await expect(
-            page.getByText(
-              '18歳未満など、単独で契約できる年齢に達していない場合は、親権者等の同意が必要です。',
-            ),
-          ).toBeVisible();
+          await expect(page).toHaveURL(/\/options\.html$/u);
         }
         if (path === 'options.html') {
-          await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute(
-            'href',
-            'https://jammaru.com/sakutto/privacy/',
-          );
           await expect(page.getByRole('link', { name: 'ソースコード' })).toHaveAttribute(
             'href',
             'https://github.com/jammaru/sakutto',

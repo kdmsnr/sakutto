@@ -15,14 +15,8 @@ const COMPLETE = [...REQUIRED_ENTRIES, ...LOCALE_ENTRIES];
 
 function manifest(overrides: PackagedManifest = {}): PackagedManifest {
   return {
-    permissions: [
-      'offscreen',
-      'storage',
-      'unlimitedStorage',
-      'activeTab',
-      'scripting',
-      'contextMenus',
-    ],
+    permissions: ['offscreen', 'storage', 'activeTab', 'scripting', 'contextMenus'],
+    host_permissions: ['http://127.0.0.1/*'],
     optional_host_permissions: ['https://*/*', 'http://*/*'],
     ...overrides,
   };
@@ -33,14 +27,13 @@ describe('auditPackage', () => {
     expect(auditPackage(COMPLETE, manifest())).toEqual([]);
   });
 
-  it('rejects a package that omits the wasm or includes weights', () => {
-    const entries = COMPLETE.filter((entry) => entry !== 'vendor/wllama/wllama.wasm');
+  it('rejects packaged model weights and wllama artifacts', () => {
     const problems = auditPackage(
-      [...entries, 'models/plamo.gguf', 'chunks/app.js.map'],
+      [...COMPLETE, 'models/plamo.gguf', 'vendor/wllama/wllama.wasm', 'chunks/app.js.map'],
       manifest(),
     );
-    expect(problems).toContain('missing vendor/wllama/wllama.wasm');
     expect(problems).toContain('unexpected models/plamo.gguf');
+    expect(problems).toContain('unexpected vendor/wllama/wllama.wasm');
     expect(problems).toContain('unexpected chunks/app.js.map');
   });
 
@@ -49,9 +42,9 @@ describe('auditPackage', () => {
     expect(problems).toContain('unexpected scripts/bench/fixtures/kyoto.html');
   });
 
-  it('rejects install-time host permissions', () => {
+  it('rejects broad install-time host permissions', () => {
     const problems = auditPackage(COMPLETE, manifest({ host_permissions: ['https://*/*'] }));
-    expect(problems).toContain('host_permissions must stay empty');
+    expect(problems).toContain('host_permissions must contain only http://127.0.0.1/*');
   });
 
   /**

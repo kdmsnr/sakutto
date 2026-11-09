@@ -45,7 +45,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'sakutto-glossary.csv';
+    link.download = 'lmsakutto-glossary.csv';
     link.click();
     URL.revokeObjectURL(url);
   }

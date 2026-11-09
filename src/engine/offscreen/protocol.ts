@@ -71,11 +71,17 @@ export function errorFromPayload(payload: EngineErrorPayload): EngineError {
   return new EngineError(payload.code, payload.message);
 }
 
+export interface LocalConnection {
+  port: number;
+  model: string;
+}
+
 export interface TranslateRequest {
   type: 'translate';
   requestId: string;
   segments: TranslateSegment[];
   options: SerializedTranslateOptions;
+  connection?: LocalConnection;
 }
 
 export interface CancelRequest {
@@ -86,6 +92,7 @@ export interface CancelRequest {
 export interface StatusRequest {
   type: 'status';
   requestId: string;
+  connection?: LocalConnection;
 }
 
 export interface PingRequest {
@@ -269,7 +276,7 @@ function isGlossary(value: unknown): value is GlossaryEntry[] {
 
 export function isSerializedTranslateOptions(value: unknown): value is SerializedTranslateOptions {
   if (!isRecord(value)) return false;
-  if (!isTargetLanguage(value.tgt)) return false;
+  if (value.tgt !== 'auto' && !isTargetLanguage(value.tgt)) return false;
   if (value.form !== 'polite' && value.form !== 'plain') return false;
   if (typeof value.priority !== 'number' || !Number.isFinite(value.priority)) return false;
   if (value.priority < -MAX_PRIORITY || value.priority > MAX_PRIORITY) return false;
@@ -298,13 +305,30 @@ function isSegments(value: unknown): value is TranslateSegment[] {
   );
 }
 
+function isConnection(value: unknown): value is LocalConnection {
+  return (
+    isRecord(value) &&
+    typeof value.port === 'number' &&
+    Number.isInteger(value.port) &&
+    value.port >= 1 &&
+    value.port <= 65535 &&
+    typeof value.model === 'string' &&
+    value.model.length <= 512
+  );
+}
+
 export function isEngineHostRequest(value: unknown): value is EngineHostRequest {
   if (!isRecord(value) || !isRequestId(value)) return false;
 
   switch (value.type) {
     case 'translate':
-      return isSegments(value.segments) && isSerializedTranslateOptions(value.options);
+      return (
+        isSegments(value.segments) &&
+        isSerializedTranslateOptions(value.options) &&
+        (value.connection === undefined || isConnection(value.connection))
+      );
     case 'status':
+      return value.connection === undefined || isConnection(value.connection);
     case 'ping':
     case 'cancel':
     case 'model-cancel':

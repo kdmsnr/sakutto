@@ -17,8 +17,11 @@ import {
 function stored(overrides: Partial<Settings> = {}): Settings {
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
+    lmStudioPort: 1234,
+    lmStudioModel: '',
+    useContext: false,
     targetLanguage: 'en',
-    form: 'polite',
+    form: 'plain',
     display: 'replace',
     consent: null,
     highQualityDismissed: false,
@@ -36,7 +39,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
 }
 
 describe('settings defaults', () => {
-  it('uses the UI language with polite form and replacement display', () => {
+  it('uses the UI language with plain form and replacement display', () => {
     expect(createDefaultSettings('fr-FR')).toEqual(stored({ targetLanguage: 'fr' }));
     expect(DEFAULT_SETTINGS.targetLanguage).toBe('en');
   });
@@ -207,7 +210,7 @@ describe('settings defaults', () => {
     ).toBeNull();
   });
 
-  it('keeps a Chrome-only target and a recorded license consent', () => {
+  it('replaces a Chrome-only target and keeps a recorded license consent', () => {
     const acceptedAt = '2026-11-05T00:00:00.000Z';
     expect(
       normalizeSettings(
@@ -230,7 +233,7 @@ describe('settings defaults', () => {
       ),
     ).toEqual(
       stored({
-        targetLanguage: 'pt',
+        targetLanguage: 'en',
         consent: {
           license: 'plamo-community',
           version: PLAMO_LICENSE_VERSION,

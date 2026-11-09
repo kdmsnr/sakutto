@@ -1,5 +1,7 @@
 # Upload to the Chrome Web Store
 
+> Historical documentation for the upstream in-browser runtime. It has not been updated for this LM Studio fork and must not be used for publication. See [BUILDING.md](BUILDING.md) for current build instructions.
+
 日本語: [CWS_UPLOAD.md](CWS_UPLOAD.md)
 
 This updates the existing Chrome Web Store item through the official [Chrome Web Store API v2](https://developer.chrome.com/docs/webstore/using-api) and [chrome-webstore-upload-cli](https://github.com/fregante/chrome-webstore-upload-cli/) 4.0.2. It does not use gcloud.
@@ -91,10 +93,10 @@ export PUBLISHER_ID="your-publisher-id"
 npx --yes chrome-webstore-upload-cli@4.0.2 upload --source <zip>
 ```
 
-`<zip>` is the file `pnpm zip` writes under `.output/`. Its name is `sakutto-<version>-chrome.zip`. For example:
+`<zip>` is the file `pnpm zip` writes under `.output/`. Its name is `lmsakutto-<version>-chrome.zip`. For example:
 
 ```bash
-chrome-webstore-upload upload --source .output/sakutto-0.1.0-chrome.zip
+chrome-webstore-upload upload --source .output/lmsakutto-0.1.0-chrome.zip
 ```
 
 Run this only when you want to submit that upload for review. Do not pass `--source` to `publish`.
@@ -108,8 +110,8 @@ chrome-webstore-upload publish
 Actions calls the same CLI through `node scripts/cws-upload.ts`. That script publishes only when `CWS_SUBMIT` is exactly `true`.
 
 ```bash
-node scripts/cws-upload.ts .output/sakutto-0.1.0-chrome.zip
-CWS_SUBMIT=true node scripts/cws-upload.ts .output/sakutto-0.1.0-chrome.zip
+node scripts/cws-upload.ts .output/lmsakutto-0.1.0-chrome.zip
+CWS_SUBMIT=true node scripts/cws-upload.ts .output/lmsakutto-0.1.0-chrome.zip
 ```
 
 Locally, a missing `CLIENT_ID`, `CLIENT_SECRET`, or `REFRESH_TOKEN` fails before any API call. The script does not print the values.

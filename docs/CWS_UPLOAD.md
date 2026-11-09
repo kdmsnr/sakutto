@@ -1,5 +1,7 @@
 # Chrome ウェブストアへアップロードする
 
+> Historical documentation for the upstream in-browser runtime. It has not been updated for this LM Studio fork and must not be used for publication. See [BUILDING.md](BUILDING.md) for current build instructions.
+
 English: [CWS_UPLOAD.en.md](CWS_UPLOAD.en.md)
 
 この文書は、既にある Chrome ウェブストアのアイテムを更新する手順です。公式の [Chrome Web Store API v2](https://developer.chrome.com/docs/webstore/using-api) を、[chrome-webstore-upload-cli](https://github.com/fregante/chrome-webstore-upload-cli/) 4.0.2 から呼びます。gcloud は使いません。
@@ -91,10 +93,10 @@ export PUBLISHER_ID="your-publisher-id"
 npx --yes chrome-webstore-upload-cli@4.0.2 upload --source <zip>
 ```
 
-`<zip>` は、`pnpm zip` が `.output/` に書くファイルです。名前は `sakutto-<version>-chrome.zip` です。例:
+`<zip>` は、`pnpm zip` が `.output/` に書くファイルです。名前は `lmsakutto-<version>-chrome.zip` です。例:
 
 ```bash
-chrome-webstore-upload upload --source .output/sakutto-0.1.0-chrome.zip
+chrome-webstore-upload upload --source .output/lmsakutto-0.1.0-chrome.zip
 ```
 
 審査へ提出するときだけ、アップロードのあとに実行します。`publish` に `--source` は付けません。
@@ -108,8 +110,8 @@ chrome-webstore-upload publish
 Actions は同じ CLI を `node scripts/cws-upload.ts` から呼びます。公開は、環境変数 `CWS_SUBMIT` が `true` のときだけです。
 
 ```bash
-node scripts/cws-upload.ts .output/sakutto-0.1.0-chrome.zip
-CWS_SUBMIT=true node scripts/cws-upload.ts .output/sakutto-0.1.0-chrome.zip
+node scripts/cws-upload.ts .output/lmsakutto-0.1.0-chrome.zip
+CWS_SUBMIT=true node scripts/cws-upload.ts .output/lmsakutto-0.1.0-chrome.zip
 ```
 
 ローカルでも、上の 3 つの環境変数が無いときは API を呼ばずに失敗します。値は出力しません。

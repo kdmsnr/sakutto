@@ -1,5 +1,7 @@
 # リリース手順
 
+> Historical documentation for the upstream in-browser runtime. It has not been updated for this LM Studio fork and must not be used for publication. See [BUILDING.md](BUILDING.md) for current build instructions.
+
 English: [RELEASING.en.md](RELEASING.en.md)
 
 この文書は、Sakutto を Chrome ウェブストアへ出す手順です。

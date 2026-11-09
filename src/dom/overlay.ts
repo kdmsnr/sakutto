@@ -6,6 +6,7 @@ export interface OverlayLabels {
   machine: string;
   selectionPending: string;
   selectionFailed: string;
+  connectionFailed: string;
   selectionTitle: string;
   selectionIcon: string;
   close: string;

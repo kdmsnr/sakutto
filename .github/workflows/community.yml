@@ -77,8 +77,7 @@ jobs:
 
             const prBody = [
               '初めての pull request をありがとうございます。Issue を先に開いてからの PR も歓迎です。小さな修正で構いません。',
-              '手順は [CONTRIBUTING.md](https://github.com/jammaru/sakutto/blob/main/CONTRIBUTING.md)',
-              '（[日本語](https://github.com/jammaru/sakutto/blob/main/CONTRIBUTING.ja.md)）にあります。',
+              '手順は [CONTRIBUTING.md](https://github.com/jammaru/sakutto/blob/main/CONTRIBUTING.md) にあります。',
               '',
               'Thank you for your first pull request. Opening an Issue first, then a PR, is welcome. Small changes are enough.',
               'See CONTRIBUTING.md for setup and checks.',
